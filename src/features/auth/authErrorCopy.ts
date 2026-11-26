@@ -17,6 +17,8 @@ const ENGLISH_AUTH_ERRORS: Record<string, keyof FarmerCopyBlock['authErrors']> =
   'Sign in again before changing your password.': 'signInAgain',
   'Sign in again before changing your email.': 'signInAgain',
   'Sign in again before disabling device unlock.': 'signInAgain',
+  'Sign in again before changing app lock.': 'signInAgain',
+  'Sign in before setting up a Quick PIN.': 'signInAgain',
   'Sign in again before enrolling this installation.': 'signInAgain',
   'Sign in with your password before enabling device unlock.': 'signInForBiometric',
   'Protected unlock is not set up. Sign in with your password.': 'biometricUnavailable',
@@ -30,6 +32,15 @@ const ENGLISH_AUTH_ERRORS: Record<string, keyof FarmerCopyBlock['authErrors']> =
   'Device unlock could not be enabled. Your password session is still active.': 'biometricEnableFailed',
   'Device unlock was disabled on this device, but the server token could not be revoked.': 'biometricRevokeWarning',
   'Secure session storage is unavailable. Device enrollment was cancelled.': 'secureStorageUnavailable',
+  'CaneGuard could not update app lock right now. Try again.': 'appLockUpdateFailed',
+  'CaneGuard could not save your Quick PIN on this device.': 'appPinSaveFailed',
+  'CaneGuard could not save your Quick PIN. Try again.': 'appPinSaveFailed',
+  'Enter a 4-digit PIN.': 'appPinInvalid',
+  'Enter your 4-digit PIN.': 'appPinInvalid',
+  'Quick PIN is unavailable. Sign in with your password.': 'appPinUnavailable',
+  'Quick PIN is not set up. Sign in with your password.': 'appPinUnavailable',
+  'Too many incorrect PIN attempts. Sign in with your password.': 'appPinLockedOut',
+  'Could not unlock with Quick PIN. Sign in with your password.': 'appPinUnlockFailed',
 };
 
 export function farmerAuthErrorMessage(
@@ -37,6 +48,9 @@ export function farmerAuthErrorMessage(
   copy: FarmerCopyBlock['authErrors'],
 ): string | null {
   if (message === null) return null;
+  if (message.startsWith('Incorrect PIN.')) {
+    return copy.appPinInvalid;
+  }
   const key = ENGLISH_AUTH_ERRORS[message];
   return key ? copy[key] : copy.generic;
 }

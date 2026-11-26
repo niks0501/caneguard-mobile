@@ -46,11 +46,13 @@ const SESSION = {
 const mockChangePassword = jest.fn();
 const mockChangeEmail = jest.fn();
 const mockDisableBiometric = jest.fn();
+const mockDisableLocalLock = jest.fn();
 const mockEnableBiometric = jest.fn();
 const mockEnroll = jest.fn();
 
 function authState(overrides: Record<string, unknown> = {}) {
   return {
+    appPinConfigured: false,
     biometricCapability: {
       deviceCredentialAvailable: true,
       status: 'available',
@@ -62,19 +64,28 @@ function authState(overrides: Record<string, unknown> = {}) {
     changePassword: mockChangePassword,
     clearSessionAfterRemoteRevocation: jest.fn(async () => true),
     disableBiometric: mockDisableBiometric,
+    disableLocalLock: mockDisableLocalLock,
+    dismissInitialPinSetup: jest.fn(),
     enableBiometricUnlock: mockEnableBiometric,
     enrollMobileDevice: mockEnroll,
     errorMessage: null,
+    farmerOfflineGrace: false,
     hasCompletedLogin: true,
+    hasPersistedSession: true,
+    localLockMode: 'none',
     login: jest.fn(async () => true),
     logout: jest.fn(async () => ({
       localClearFailed: false,
       remoteRevocationFailed: false,
     })),
     markSessionExpired: jest.fn(async () => undefined),
+    needsInitialPinSetup: false,
+    requiresAppPinUnlock: false,
     session: SESSION,
     sessionVerification: 'verified',
+    setupAppPin: jest.fn(async () => true),
     status: 'authenticated',
+    unlockWithAppPin: jest.fn(async () => true),
     unlockWithBiometrics: jest.fn(async () => true),
     user: SESSION.user,
     ...overrides,
@@ -95,6 +106,7 @@ describe('AccountSecurityScreen', () => {
     mockChangePassword.mockResolvedValue(false);
     mockChangeEmail.mockResolvedValue(false);
     mockDisableBiometric.mockResolvedValue(false);
+    mockDisableLocalLock.mockResolvedValue(true);
     mockEnableBiometric.mockResolvedValue(false);
     mockEnroll.mockResolvedValue(false);
     mockUseLocalSearchParams.mockReturnValue({});
@@ -109,7 +121,8 @@ describe('AccountSecurityScreen', () => {
     await render(<AccountSecurityScreen />);
 
     expect(screen.getByText('Seguridad ng account')).toBeOnTheScreen();
-    expect(screen.getByText('Pagbukas gamit ang biometrics')).toBeOnTheScreen();
+    expect(screen.getByText('Paggamit offline')).toBeOnTheScreen();
+    expect(screen.getByText('Lock ng app')).toBeOnTheScreen();
     expect(screen.getByText('Palitan ang password')).toBeOnTheScreen();
     expect(screen.getByText('Palitan ang email')).toBeOnTheScreen();
     expect(screen.getByLabelText('Buksan ang form para mag-enroll ng device')).toBeOnTheScreen();
@@ -126,10 +139,11 @@ describe('AccountSecurityScreen', () => {
     ).toBeOnTheScreen();
   });
 
-  it('renders four section rows with no password input at first render', async () => {
+  it('renders offline access, app lock, and account rows with no password input at first render', async () => {
     await render(<AccountSecurityScreen />);
 
-    expect(screen.getByText('Biometric unlock')).toBeOnTheScreen();
+    expect(screen.getByTestId('account-security.offline-access')).toBeOnTheScreen();
+    expect(screen.getByText('App lock')).toBeOnTheScreen();
     expect(screen.getByText('Change password')).toBeOnTheScreen();
     expect(screen.getByText('Change email')).toBeOnTheScreen();
     expect(screen.getByText('Device enrollment')).toBeOnTheScreen();
@@ -153,10 +167,10 @@ describe('AccountSecurityScreen', () => {
 
     await render(<AccountSecurityScreen />);
 
-    expect(screen.getByText('Device unlock')).toBeOnTheScreen();
+    expect(screen.getByText('App lock')).toBeOnTheScreen();
     expect(screen.getByText('Enable device unlock')).toBeOnTheScreen();
-    expect(screen.getByText(FARMER_COPY.en.unlock.deviceCredential.title)).toBeOnTheScreen();
     expect(screen.getByText(FARMER_COPY.en.unlock.deviceCredential.enable)).toBeOnTheScreen();
+    expect(screen.getByTestId('account-security.setup-app-pin')).toBeOnTheScreen();
   });
 
   it('opens each form through its native sheet route', async () => {
@@ -170,12 +184,18 @@ describe('AccountSecurityScreen', () => {
     expect(mockPush).toHaveBeenCalledWith('/account-device-enrollment');
   });
 
-  it('opens the biometric sheet from its row when biometrics are enabled', async () => {
-    mockUseAuth.mockReturnValue(authState({ biometricEnabled: true }));
-    await render(<AccountSecurityScreen />);
+  it('turns off local app lock in place without logging out', async () => {
+    mockUseAuth.mockReturnValue(authState({ biometricEnabled: true, localLockMode: 'device' }));
+    await render(
+      <ToastProvider>
+        <AccountSecurityScreen />
+      </ToastProvider>,
+    );
 
-    await fireEvent.press(screen.getByTestId('account-security.open-disable-biometric'));
-    expect(mockPush).toHaveBeenCalledWith('/account-biometric');
+    await fireEvent.press(screen.getByTestId('account-security.disable-app-lock'));
+    await waitFor(() => expect(mockDisableLocalLock).toHaveBeenCalledTimes(1));
+    expect(mockReplace).not.toHaveBeenCalledWith('/login');
+    expect(screen.getByTestId('app-toast')).toHaveTextContent('App lock turned off');
   });
 
   it('shows the enrollment result banner returned from the sheet', async () => {
@@ -196,6 +216,19 @@ describe('AccountSecurityScreen', () => {
 
     expect(screen.getByTestId('account-security.error')).toHaveTextContent('Hindi tama ang email o password.');
     expect(screen.queryByText('The email or password is incorrect.')).toBeNull();
+  });
+
+  it('localizes Quick PIN and app lock errors in Tagalog for farmers', async () => {
+    mockLanguage = 'tl';
+    mockUseAuth.mockReturnValue(authState({
+      errorMessage: 'CaneGuard could not update app lock right now. Try again.',
+      user: { ...SESSION.user, role: 'farmer' },
+    }));
+    await render(<AccountSecurityScreen />);
+
+    expect(screen.getByTestId('account-security.error')).toHaveTextContent(
+      'Hindi ma-update ng CaneGuard ang lock ng app ngayon. Subukan muli.',
+    );
   });
 
   it('localizes known auth errors returned by the farmer change-password form', async () => {
@@ -433,7 +466,7 @@ describe('AccountSecurityScreen', () => {
     expect(mockReplace).toHaveBeenCalledWith('/login');
   });
 
-  it('keeps biometric enablement unavailable for unsupported capability', async () => {
+  it('offers 4-digit Quick PIN setup on phones with no biometrics or screen lock', async () => {
     mockUseAuth.mockReturnValue(
       authState({
         biometricCapability: {
@@ -446,8 +479,11 @@ describe('AccountSecurityScreen', () => {
 
     await render(<AccountSecurityScreen />);
 
-    expect(screen.getByTestId('account-security.enable-biometric')).toBeDisabled();
-    expect(mockEnableBiometric).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('account-security.enable-biometric')).toBeNull();
+    const pinBtn = screen.getByTestId('account-security.setup-app-pin');
+    expect(pinBtn).toBeEnabled();
+    await fireEvent.press(pinBtn);
+    expect(mockPush).toHaveBeenCalledWith('/account-app-pin');
   });
 });
 

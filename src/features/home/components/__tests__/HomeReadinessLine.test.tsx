@@ -20,7 +20,8 @@ afterEach(() => {
 });
 
 describe('HomeReadinessLine', () => {
-  it('shows a quiet line that opens Account security while biometric unlock is off', async () => {
+  it('shows a quiet line that opens Account security when biometric step is missing', async () => {
+    mockReadiness = { missingStep: 'turn-on-biometric', protectedSessionEnabled: false };
     await render(<HomeReadinessLine />);
     await fireEvent.press(screen.getByTestId('home.readiness-line'));
     expect(router.push).toHaveBeenCalledWith('/account-security');

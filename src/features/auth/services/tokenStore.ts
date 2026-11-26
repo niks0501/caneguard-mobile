@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 
+import { clearAppPin } from '@/features/auth/services/appPinAuth';
 import {
   authenticateWithDeviceCredential,
   getBiometricCapability,
@@ -7,11 +8,14 @@ import {
 import { parseCapabilityGrant } from '@/features/auth/domain/sessionState';
 import {
   isMobileUser,
+  type LocalLockMode,
   type MobileSession,
 } from '@/features/auth/types';
 
 const LEGACY_SESSION_KEY = 'caneguard.mobile.session.v1';
 const PROTECTED_SESSION_KEY = 'caneguard.mobile.session.protected.v1';
+const SESSION_PERSISTED_KEY = 'caneguard.mobile.session-persisted.v1';
+const LOCAL_LOCK_MODE_KEY = 'caneguard.mobile.local-lock-mode.v1';
 const BIOMETRIC_ENABLED_KEY = 'caneguard.mobile.biometric-enabled.v1';
 // Marks a protected session stored behind the device PIN/pattern/password
 // instead of a strong-biometric-bound key (offline cold-start fallback).
@@ -23,14 +27,20 @@ const STORE_OPTIONS: SecureStore.SecureStoreOptions = {
 };
 // `requireAuthentication` makes Android use an authentication-bound Keystore
 // key and makes iOS use an authentication-gated Keychain item. This option set
-// is only used when the device has no PIN/pattern/password; otherwise the
-// session is stored with STORE_OPTIONS and readProtectedMobileSession prompts
-// through LocalAuthentication, which is then the only gate.
+// is only used when `localLockMode === 'device'` and the device has strong
+// biometrics without a device credential fallback; otherwise the session is
+// stored with STORE_OPTIONS and gated by LocalAuthentication or App PIN as
+// configured.
 const PROTECTED_STORE_OPTIONS: SecureStore.SecureStoreOptions = {
   ...STORE_OPTIONS,
   authenticationPrompt: 'Unlock CaneGuard',
   requireAuthentication: true,
 };
+
+export interface PersistedSessionResult {
+  farmerOfflineGrace: boolean;
+  session: MobileSession;
+}
 
 export class StoredSessionExpiredError extends Error {
   readonly token: string | null;
@@ -63,19 +73,72 @@ export class SecureSessionStoreError extends Error {
   }
 }
 
-export async function saveProtectedMobileSession(
+function isLocalLockMode(value: unknown): value is LocalLockMode {
+  return value === 'none' || value === 'device' || value === 'app-pin';
+}
+
+export async function getLocalLockMode(): Promise<LocalLockMode> {
+  try {
+    const stored = await SecureStore.getItemAsync(LOCAL_LOCK_MODE_KEY, STORE_OPTIONS);
+    if (isLocalLockMode(stored)) {
+      return stored;
+    }
+    // Seamless upgrade for installations that enabled biometric/device unlock
+    // before persistence and local lock were decoupled.
+    const [legacyBiometric, legacyDeviceGate] = await Promise.all([
+      SecureStore.getItemAsync(BIOMETRIC_ENABLED_KEY, STORE_OPTIONS),
+      SecureStore.getItemAsync(DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS),
+    ]);
+    return legacyBiometric === 'true' || legacyDeviceGate === 'true' ? 'device' : 'none';
+  } catch {
+    return 'none';
+  }
+}
+
+export async function hasPersistedMobileSession(): Promise<boolean> {
+  try {
+    const persisted = await SecureStore.getItemAsync(
+      SESSION_PERSISTED_KEY,
+      STORE_OPTIONS,
+    );
+    if (persisted === 'true') {
+      return true;
+    }
+    const legacyBiometric = await SecureStore.getItemAsync(
+      BIOMETRIC_ENABLED_KEY,
+      STORE_OPTIONS,
+    );
+    return legacyBiometric === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export async function savePersistedMobileSession(
   session: MobileSession,
+  lockMode: LocalLockMode,
 ): Promise<void> {
   assertPersistableSession(session);
   try {
-    const capability = await getBiometricCapability();
-    const deviceCredentialGate = capability.deviceCredentialAvailable;
-    const sessionOptions = deviceCredentialGate
-      ? STORE_OPTIONS
-      : PROTECTED_STORE_OPTIONS;
+    const useDeviceLock = lockMode === 'device';
+    const capability = useDeviceLock ? await getBiometricCapability() : null;
+    const deviceCredentialGate = Boolean(
+      useDeviceLock && capability?.deviceCredentialAvailable,
+    );
+    const useOsAuthBoundKey = Boolean(
+      useDeviceLock && !deviceCredentialGate,
+    );
+    const sessionOptions = useOsAuthBoundKey
+      ? PROTECTED_STORE_OPTIONS
+      : STORE_OPTIONS;
+
     try {
       if (deviceCredentialGate) {
-        await SecureStore.setItemAsync(DEVICE_CREDENTIAL_GATE_KEY, 'true', STORE_OPTIONS);
+        await SecureStore.setItemAsync(
+          DEVICE_CREDENTIAL_GATE_KEY,
+          'true',
+          STORE_OPTIONS,
+        );
       }
       await SecureStore.setItemAsync(
         PROTECTED_SESSION_KEY,
@@ -83,16 +146,23 @@ export async function saveProtectedMobileSession(
         sessionOptions,
       );
       if (!deviceCredentialGate) {
-        await SecureStore.deleteItemAsync(DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS);
+        await SecureStore.deleteItemAsync(
+          DEVICE_CREDENTIAL_GATE_KEY,
+          STORE_OPTIONS,
+        );
       }
       await SecureStore.deleteItemAsync(LEGACY_SESSION_KEY, STORE_OPTIONS);
-      await SecureStore.setItemAsync(
-        BIOMETRIC_ENABLED_KEY,
-        'true',
-        STORE_OPTIONS,
-      );
+      await SecureStore.setItemAsync(SESSION_PERSISTED_KEY, 'true', STORE_OPTIONS);
+      await SecureStore.setItemAsync(LOCAL_LOCK_MODE_KEY, lockMode, STORE_OPTIONS);
+      if (useDeviceLock) {
+        await SecureStore.setItemAsync(BIOMETRIC_ENABLED_KEY, 'true', STORE_OPTIONS);
+      } else {
+        await SecureStore.deleteItemAsync(BIOMETRIC_ENABLED_KEY, STORE_OPTIONS);
+      }
     } catch (error: unknown) {
       await deleteBestEffort(PROTECTED_SESSION_KEY, sessionOptions);
+      await deleteBestEffort(SESSION_PERSISTED_KEY, STORE_OPTIONS);
+      await deleteBestEffort(LOCAL_LOCK_MODE_KEY, STORE_OPTIONS);
       await deleteBestEffort(BIOMETRIC_ENABLED_KEY, STORE_OPTIONS);
       await deleteBestEffort(DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS);
       throw error;
@@ -102,20 +172,39 @@ export async function saveProtectedMobileSession(
   }
 }
 
-export async function readProtectedMobileSession(): Promise<MobileSession | null> {
+export async function saveProtectedMobileSession(
+  session: MobileSession,
+): Promise<void> {
+  return savePersistedMobileSession(session, 'device');
+}
+
+export async function readPersistedMobileSession(
+  options: { skipDevicePrompt?: boolean; defaultToDeviceLock?: boolean } = {},
+): Promise<PersistedSessionResult | null> {
   let stored: string | null;
+  let lockMode: LocalLockMode;
   try {
+    const rawLockMode = await SecureStore.getItemAsync(LOCAL_LOCK_MODE_KEY, STORE_OPTIONS);
+    if (isLocalLockMode(rawLockMode)) {
+      lockMode = rawLockMode;
+    } else if (options.defaultToDeviceLock) {
+      lockMode = 'device';
+    } else {
+      lockMode = await getLocalLockMode();
+    }
     const deviceCredentialGate =
-      (await SecureStore.getItemAsync(DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS)) === 'true';
-    if (deviceCredentialGate) {
+      (await SecureStore.getItemAsync(DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS)) ===
+      'true';
+    if (lockMode === 'device' && deviceCredentialGate && !options.skipDevicePrompt) {
       const auth = await authenticateWithDeviceCredential();
       if (!auth.success) {
         throw new BiometricSessionError('ACCESS_FAILED', auth.message);
       }
     }
+    const useOsAuthBoundKey = lockMode === 'device' && !deviceCredentialGate;
     stored = await SecureStore.getItemAsync(
       PROTECTED_SESSION_KEY,
-      deviceCredentialGate ? STORE_OPTIONS : PROTECTED_STORE_OPTIONS,
+      useOsAuthBoundKey ? PROTECTED_STORE_OPTIONS : STORE_OPTIONS,
     );
   } catch (error: unknown) {
     if (error instanceof BiometricSessionError) {
@@ -144,6 +233,11 @@ export async function readProtectedMobileSession(): Promise<MobileSession | null
     );
   }
   return parsed;
+}
+
+export async function readProtectedMobileSession(): Promise<MobileSession | null> {
+  const result = await readPersistedMobileSession({ defaultToDeviceLock: true });
+  return result ? result.session : null;
 }
 
 export async function clearLegacyMobileSession(): Promise<boolean> {
@@ -175,6 +269,10 @@ export async function markMobileLoginCompleted(): Promise<void> {
 
 export async function isBiometricUnlockEnabled(): Promise<boolean> {
   try {
+    const mode = await SecureStore.getItemAsync(LOCAL_LOCK_MODE_KEY, STORE_OPTIONS);
+    if (isLocalLockMode(mode)) {
+      return mode === 'device';
+    }
     const value = await SecureStore.getItemAsync(
       BIOMETRIC_ENABLED_KEY,
       STORE_OPTIONS,
@@ -189,6 +287,8 @@ export async function disableBiometricUnlock(): Promise<void> {
   const failures: unknown[] = [];
   for (const [key, options] of [
     [PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS],
+    [SESSION_PERSISTED_KEY, STORE_OPTIONS],
+    [LOCAL_LOCK_MODE_KEY, STORE_OPTIONS],
     [BIOMETRIC_ENABLED_KEY, STORE_OPTIONS],
     [DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS],
   ] as const) {
@@ -198,6 +298,7 @@ export async function disableBiometricUnlock(): Promise<void> {
       failures.push(error);
     }
   }
+  await clearAppPin();
   if (failures.length > 0) {
     throw toSecureStoreError(failures[0]);
   }
@@ -208,6 +309,8 @@ export async function clearMobileSession(): Promise<void> {
   for (const [key, options] of [
     [LEGACY_SESSION_KEY, STORE_OPTIONS],
     [PROTECTED_SESSION_KEY, PROTECTED_STORE_OPTIONS],
+    [SESSION_PERSISTED_KEY, STORE_OPTIONS],
+    [LOCAL_LOCK_MODE_KEY, STORE_OPTIONS],
     [BIOMETRIC_ENABLED_KEY, STORE_OPTIONS],
     [DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS],
   ] as const) {
@@ -217,12 +320,15 @@ export async function clearMobileSession(): Promise<void> {
       failures.push(error);
     }
   }
+  await clearAppPin();
   if (failures.length > 0) {
     throw toSecureStoreError(failures[0]);
   }
 }
 
-async function parseStoredSession(stored: string): Promise<MobileSession | null> {
+async function parseStoredSession(
+  stored: string,
+): Promise<PersistedSessionResult | null> {
   let value: unknown;
   try {
     value = JSON.parse(stored) as unknown;
@@ -250,13 +356,32 @@ async function parseStoredSession(stored: string): Promise<MobileSession | null>
     throw new StoredSessionExpiredError(value.token);
   }
   if (!isFutureIsoDate(value.expiresAt)) {
+    // Farmers keep offline personal-scan grace access after the 30-day server
+    // token expires; their bearer token is stripped so no stale credential is
+    // sent to the API, while their local owner identity remains usable offline.
+    if (value.user.role === 'farmer') {
+      const { capabilityGrant: _dropped, ...rest } = value;
+      void _dropped;
+      return {
+        farmerOfflineGrace: true,
+        session: {
+          ...rest,
+          token: '',
+          user: { ...value.user, capabilities: [] },
+        },
+      };
+    }
+
     await deleteStoredSessionBestEffort();
+    await deleteBestEffort(SESSION_PERSISTED_KEY, STORE_OPTIONS);
+    await deleteBestEffort(LOCAL_LOCK_MODE_KEY, STORE_OPTIONS);
     await deleteBestEffort(BIOMETRIC_ENABLED_KEY, STORE_OPTIONS);
     await deleteBestEffort(DEVICE_CREDENTIAL_GATE_KEY, STORE_OPTIONS);
+    await clearAppPin();
     throw new StoredSessionExpiredError(value.token);
   }
 
-  return value;
+  return { farmerOfflineGrace: false, session: value };
 }
 
 function isEligibleStoredSession(value: unknown): value is MobileSession {

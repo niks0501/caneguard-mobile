@@ -73,11 +73,11 @@ describe('LoginScreen biometric fallback', () => {
     await waitFor(() => expect(unlockWithBiometrics).toHaveBeenCalledTimes(1));
   });
 
-  it('keeps the fallback button unavailable when biometric unlock is not configured', async () => {
+  it('shows a calm offline-ready note when biometric unlock is not configured', async () => {
     setAuthValue({
       biometricCapability: {
-        deviceCredentialAvailable: true,
-        status: 'available',
+        deviceCredentialAvailable: false,
+        status: 'unsupported',
         strongBiometricsAvailable: false,
       },
     });
@@ -85,14 +85,35 @@ describe('LoginScreen biometric fallback', () => {
     await render(<LoginScreen />);
 
     expect(screen.queryByTestId('auth.biometric-unlock')).not.toBeOnTheScreen();
-    // M09/D01: a password-only session explains the offline restart limit
-    // without implying that a password is stored for offline unlock.
-    expect(screen.getByTestId('auth.offline-restart-limit')).toHaveTextContent(
-      /Password-only sign-in/,
+    expect(screen.getByTestId('auth.offline-ready-note')).toHaveTextContent(
+      /Works offline after sign-in/i,
     );
-    expect(screen.getByTestId('auth.offline-restart-limit')).toHaveTextContent(
-      /Turn on device unlock/,
+    expect(screen.getByTestId('auth.offline-ready-note')).toHaveTextContent(
+      /no biometrics needed/i,
     );
+  });
+
+  it('shows the 4-digit Quick PIN unlock panel when requiresAppPinUnlock is true', async () => {
+    const unlockWithAppPin = jest.fn(async () => true);
+    setAuthValue({
+      requiresAppPinUnlock: true,
+      unlockWithAppPin,
+    });
+
+    await render(
+      <ToastProvider>
+        <LoginScreen />
+      </ToastProvider>,
+    );
+
+    expect(screen.getByTestId('auth.app-pin-input')).toBeOnTheScreen();
+    expect(screen.getByTestId('auth.app-pin-submit')).toBeDisabled();
+
+    await fireEvent.changeText(screen.getByTestId('auth.app-pin-input'), '2580');
+    await fireEvent.press(screen.getByTestId('auth.app-pin-submit'));
+
+    await waitFor(() => expect(unlockWithAppPin).toHaveBeenCalledWith('2580'));
+    expect(router.replace).toHaveBeenCalledWith('/home');
   });
 
   it('names device credentials for a configured PIN fallback', async () => {
@@ -202,26 +223,15 @@ describe('LoginScreen biometric fallback', () => {
   });
 });
 
-describe('LoginScreen ready-for-field sheet', () => {
+describe('LoginScreen post-login navigation', () => {
   const fill = async () => {
     await fireEvent.changeText(screen.getByTestId('auth.email-input'), 'a@b.test');
     await fireEvent.changeText(screen.getByTestId('auth.password-input'), 'secret-pass');
     await fireEvent.press(screen.getByTestId('auth.login-submit'));
   };
 
-  it('opens the sheet once after a password sign-in when biometric is available but off', async () => {
+  it('goes straight to Home after sign-in without a ReadyForFieldSheet detour', async () => {
     setAuthValue({ login: jest.fn(async () => true) });
-    await render(
-      <ToastProvider>
-        <LoginScreen />
-      </ToastProvider>,
-    );
-    await fill();
-    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/ready-for-field'));
-  });
-
-  it('skips the sheet when biometric unlock is already on', async () => {
-    setAuthValue({ biometricEnabled: true, login: jest.fn(async () => true) });
     await render(
       <ToastProvider>
         <LoginScreen />

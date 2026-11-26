@@ -1,0 +1,2069 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CaneGuard Mobile — Simplified Offline Experience Plan</title>
+  <style>
+    /* =========================================================================
+       CaneGuard Mobile Design Tokens (matched from src/constants/theme.ts)
+       Light: warm field paper (#F8F5EE) + deep cane green (#445D48 / #2E4031)
+       + cane gold (#D6CC99). Dark: deep cane canopy (#101711 / #1C271E).
+       ========================================================================= */
+    :root,
+    [data-theme="light"] {
+      --bg: #F8F5EE;
+      --bg-el: #F3EFE4;
+      --bg-sel: #ECE7D9;
+      --surface: #F3EFE4;
+      --surface-elev: #FFFDF8;
+      --surface-muted: #EFEADD;
+      --text: #1F2A21;
+      --text-sec: #4A5650;
+      --primary: #445D48;
+      --primary-dark: #2E4031;
+      --primary-light: #6E8B74;
+      --on-primary: #FFFFFF;
+      --accent: #D6CC99;
+      --accent-dark: #B8AD73;
+      --border: #DDD8C9;
+      --divider: #E7E2D4;
+      --success: #2E6D38;
+      --success-bg: #E8F5E9;
+      --warning: #8A4A06;
+      --warning-bg: #F7EBD3;
+      --danger: #9B2F2F;
+      --danger-bg: #F6E3DE;
+      --info: #2E6FA3;
+      --info-bg: #E3F2FD;
+      --shadow-sm: 0 2px 10px rgba(46, 64, 49, 0.08);
+      --shadow-md: 0 6px 22px rgba(46, 64, 49, 0.12);
+      --header-bg: #2E4031;
+      --header-fg: #FFFFFF;
+      --header-sub: #D6CC99;
+      --code-bg: #ECE7D9;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-serif: Georgia, "Times New Roman", ui-serif, serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-full: 999px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #101711;
+        --bg-el: #172018;
+        --bg-sel: #223125;
+        --surface: #172018;
+        --surface-elev: #1C271E;
+        --surface-muted: #223125;
+        --text: #F6F8F6;
+        --text-sec: #A7B0A9;
+        --primary: #91B79A;
+        --primary-dark: #B9D0BE;
+        --primary-light: #6E8B74;
+        --on-primary: #101711;
+        --accent: #D6CC99;
+        --accent-dark: #B8AD73;
+        --border: #314034;
+        --divider: #263329;
+        --success: #72B77B;
+        --success-bg: #17351C;
+        --warning: #E2A15F;
+        --warning-bg: #3A2817;
+        --danger: #E17878;
+        --danger-bg: #3D1D1D;
+        --info: #74A9D9;
+        --info-bg: #173049;
+        --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.28);
+        --shadow-md: 0 6px 24px rgba(0, 0, 0, 0.42);
+        --header-bg: #172018;
+        --header-fg: #F6F8F6;
+        --header-sub: #D6CC99;
+        --code-bg: #223125;
+      }
+      :root:not([data-theme="light"]) .logo-light { display: none; }
+      :root:not([data-theme="light"]) .logo-dark { display: block; }
+    }
+
+    [data-theme="dark"] {
+      --bg: #101711;
+      --bg-el: #172018;
+      --bg-sel: #223125;
+      --surface: #172018;
+      --surface-elev: #1C271E;
+      --surface-muted: #223125;
+      --text: #F6F8F6;
+      --text-sec: #A7B0A9;
+      --primary: #91B79A;
+      --primary-dark: #B9D0BE;
+      --primary-light: #6E8B74;
+      --on-primary: #101711;
+      --accent: #D6CC99;
+      --accent-dark: #B8AD73;
+      --border: #314034;
+      --divider: #263329;
+      --success: #72B77B;
+      --success-bg: #17351C;
+      --warning: #E2A15F;
+      --warning-bg: #3A2817;
+      --danger: #E17878;
+      --danger-bg: #3D1D1D;
+      --info: #74A9D9;
+      --info-bg: #173049;
+      --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.28);
+      --shadow-md: 0 6px 24px rgba(0, 0, 0, 0.42);
+      --header-bg: #172018;
+      --header-fg: #F6F8F6;
+      --header-sub: #D6CC99;
+      --code-bg: #223125;
+    }
+
+    /* Layout safety (anti-overflow at every nesting level) */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 15px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+    :where(.grid, .flex, .layout-grid, .layout-flex) > *,
+    :where([style*="display: grid"], [style*="display:grid"], [style*="display: flex"], [style*="display:flex"]) > * {
+      min-width: 0;
+    }
+    :where(p, h1, h2, h3, h4, h5, h6, li, dd, blockquote, figcaption, td, th, .badge, .pill, code) {
+      overflow-wrap: anywhere;
+    }
+    :where(img, svg, video, canvas, iframe) {
+      max-width: 100%;
+      height: auto;
+    }
+
+    /* Page chrome */
+    .topbar {
+      background: var(--header-bg);
+      color: var(--header-fg);
+      border-bottom: 3px solid var(--accent);
+      padding: 20px 24px;
+    }
+    .topbar-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+    .brand-medallion {
+      width: 52px;
+      height: 52px;
+      border-radius: var(--radius-full);
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      border: 2px solid var(--accent);
+      padding: 6px;
+    }
+    .brand-medallion img {
+      width: 36px;
+      height: 36px;
+      object-fit: contain;
+    }
+    .logo-dark { display: none; }
+    [data-theme="dark"] .logo-light { display: none; }
+    [data-theme="dark"] .logo-dark { display: block; }
+
+    .brand-eyebrow {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--header-sub);
+      margin: 0 0 2px;
+    }
+    .brand-title {
+      font-family: var(--font-serif);
+      font-size: clamp(22px, 3vw, 30px);
+      font-weight: 400;
+      line-height: 1.2;
+      margin: 0;
+      color: var(--header-fg);
+    }
+    .topbar-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .nav-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 13px;
+      border-radius: var(--radius-full);
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      color: var(--header-fg);
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(214, 204, 153, 0.35);
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .nav-pill:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Main container */
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 28px 20px 64px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    /* Sticky jump nav */
+    .jump-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px 14px;
+      background: var(--surface-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+    }
+    .jump-nav a {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--primary-dark);
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: var(--radius-full);
+      background: var(--surface-muted);
+      border: 1px solid transparent;
+    }
+    .jump-nav a:hover {
+      border-color: var(--primary);
+      background: var(--bg-sel);
+    }
+
+    /* Sections & Cards */
+    .section {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .section-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 1px solid var(--divider);
+      padding-bottom: 10px;
+    }
+    .section-kicker {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--primary);
+      margin: 0 0 4px;
+    }
+    h2 {
+      font-family: var(--font-serif);
+      font-size: clamp(21px, 2.4vw, 26px);
+      font-weight: 400;
+      color: var(--primary-dark);
+      margin: 0;
+      line-height: 1.25;
+    }
+    h3 {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--primary-dark);
+      margin: 0 0 6px;
+    }
+    p { margin: 0; }
+    .lead {
+      font-size: 16px;
+      color: var(--text-sec);
+      max-width: 78ch;
+    }
+
+    .card {
+      background: var(--surface-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+    }
+    .card-muted {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+    }
+
+    /* Stat strip */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
+    }
+    .stat-card {
+      background: var(--surface-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .stat-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-sec);
+    }
+    .stat-val {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--primary-dark);
+      line-height: 1.2;
+    }
+    .stat-desc {
+      font-size: 13px;
+      color: var(--text-sec);
+    }
+
+    /* Badges & inline code */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: var(--radius-full);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.35;
+      white-space: normal;
+    }
+    .badge-primary { background: var(--primary); color: var(--on-primary); }
+    .badge-success { background: var(--success-bg); color: var(--success); border: 1px solid var(--success); }
+    .badge-warning { background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning); }
+    .badge-danger  { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger); }
+    .badge-info    { background: var(--info-bg); color: var(--info); border: 1px solid var(--info); }
+    .badge-muted   { background: var(--surface-muted); color: var(--text-sec); border: 1px solid var(--border); }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.87em;
+      background: var(--code-bg);
+      color: var(--primary-dark);
+      padding: 1px 6px;
+      border-radius: 5px;
+    }
+
+    /* Audit grid */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr));
+      gap: 16px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+      gap: 16px;
+    }
+    .audit-card {
+      background: var(--surface-elev);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--warning);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .audit-card.critical { border-left-color: var(--danger); }
+    .audit-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .audit-cite {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-sec);
+      overflow-wrap: anywhere;
+    }
+
+    /* Callout boxes */
+    .callout {
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .callout-success { background: var(--success-bg); border-color: var(--success); }
+    .callout-warning { background: var(--warning-bg); border-color: var(--warning); }
+    .callout-info    { background: var(--info-bg); border-color: var(--info); }
+    .callout-title {
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    /* Diagram frame */
+    .diagram-frame {
+      background: var(--surface-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .diagram-caption {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .diagram-question {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--primary-dark);
+    }
+    .svg-wrap {
+      width: 100%;
+      overflow: hidden;
+      border-radius: var(--radius-md);
+      background: var(--bg);
+      border: 1px solid var(--divider);
+      padding: 8px;
+    }
+    .svg-wrap svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    /* Interactive Phone Mockup Studio */
+    .studio-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+    }
+    .control-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+    .control-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-sec);
+      margin-right: 4px;
+    }
+    .seg-btn {
+      padding: 6px 12px;
+      border-radius: var(--radius-full);
+      border: 1px solid var(--border);
+      background: var(--surface-elev);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .seg-btn[aria-pressed="true"] {
+      background: var(--primary);
+      color: var(--on-primary);
+      border-color: var(--primary);
+    }
+
+    .phones-pair {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+      gap: 20px;
+      align-items: start;
+    }
+    .phone-col {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+    }
+    .phone-col-head {
+      width: 100%;
+      max-width: 360px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .phone-frame {
+      width: 100%;
+      max-width: 360px;
+      background: var(--bg);
+      border: 2px solid var(--border);
+      border-radius: 28px;
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .phone-statusbar {
+      background: var(--header-bg);
+      color: var(--header-fg);
+      padding: 8px 18px;
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .phone-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 410px;
+    }
+    .cg-card {
+      background: var(--surface-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .cg-btn {
+      width: 100%;
+      padding: 11px 14px;
+      border-radius: var(--radius-lg);
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      text-align: center;
+      background: var(--primary);
+      color: var(--on-primary);
+    }
+    .cg-btn-sec {
+      background: transparent;
+      color: var(--primary-dark);
+      border: 1.5px solid var(--primary);
+    }
+    .cg-btn-disabled {
+      background: var(--surface-muted);
+      color: var(--text-sec);
+      border: 1px solid var(--border);
+      opacity: 0.65;
+    }
+    .cg-alert-warn {
+      background: var(--warning-bg);
+      border: 1px solid var(--warning);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      font-size: 12.5px;
+      color: var(--text);
+    }
+    .cg-alert-ok {
+      background: var(--success-bg);
+      border: 1px solid var(--success);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      font-size: 12.5px;
+      color: var(--text);
+    }
+    .cg-alert-danger {
+      background: var(--danger-bg);
+      border: 1px solid var(--danger);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      font-size: 12.5px;
+      color: var(--text);
+    }
+    .cg-serif-headline {
+      font-family: var(--font-serif);
+      font-size: 22px;
+      line-height: 1.25;
+      color: var(--text);
+      margin: 0;
+    }
+    .pin-dots {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      padding: 8px 0;
+    }
+    .pin-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 2px solid var(--primary);
+      background: var(--primary);
+    }
+    .pin-dot.empty { background: transparent; }
+    .pin-pad {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      max-width: 220px;
+      margin: 0 auto;
+    }
+    .pin-key {
+      height: 36px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: var(--surface-elev);
+      color: var(--text);
+      font-weight: 600;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Comparison option cards */
+    .option-card {
+      background: var(--surface-elev);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: var(--shadow-sm);
+    }
+    .option-card.recommended {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(68, 93, 72, 0.16), var(--shadow-md);
+    }
+    .option-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .pros-cons {
+      margin: 0;
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      font-size: 13.5px;
+    }
+
+    /* Tables */
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      background: var(--surface-elev);
+      box-shadow: var(--shadow-sm);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+    }
+    th, td {
+      text-align: left;
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--divider);
+      vertical-align: top;
+    }
+    th {
+      background: var(--surface);
+      color: var(--primary-dark);
+      font-weight: 700;
+      font-size: 12.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    tr:last-child td { border-bottom: none; }
+
+    /* Implementation phases */
+    .phase-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .phase-item {
+      background: var(--surface-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
+    }
+    .phase-num {
+      width: 34px;
+      height: 34px;
+      border-radius: var(--radius-full);
+      background: var(--primary);
+      color: var(--on-primary);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .phase-body {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .phase-bullets {
+      margin: 4px 0 0;
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 14px;
+    }
+
+    /* Decision / Input forms */
+    .decision-form {
+      background: var(--surface-elev);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: var(--shadow-sm);
+    }
+    .choice-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .choice-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      cursor: pointer;
+    }
+    .choice-option:has(input:checked) {
+      border-color: var(--primary);
+      background: var(--success-bg);
+    }
+    .choice-option input {
+      margin-top: 3px;
+      accent-color: var(--primary);
+      width: 17px;
+      height: 17px;
+      flex-shrink: 0;
+    }
+    .choice-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 14px;
+    }
+    .choice-sub {
+      font-size: 13px;
+      color: var(--text-sec);
+    }
+    .form-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding-top: 4px;
+    }
+    .btn {
+      padding: 10px 16px;
+      border-radius: var(--radius-md);
+      border: 1.5px solid var(--primary);
+      background: var(--primary);
+      color: var(--on-primary);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn:hover { opacity: 0.92; }
+    .btn-outline {
+      background: transparent;
+      color: var(--primary-dark);
+    }
+    .queue-status {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--success);
+    }
+    textarea.note-input {
+      width: 100%;
+      min-height: 76px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      resize: vertical;
+    }
+
+    footer {
+      border-top: 1px solid var(--divider);
+      padding-top: 18px;
+      font-size: 13px;
+      color: var(--text-sec);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    @media (max-width: 640px) {
+      .topbar { padding: 16px; }
+      main { padding: 18px 14px 48px; }
+      .phase-item { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand-lockup">
+        <div class="brand-medallion">
+          <img src="cane_guard_logo.png" alt="CaneGuard Logo" class="logo-light">
+          <img src="cane_guard_logo_onDark.png" alt="CaneGuard Logo" class="logo-dark">
+        </div>
+        <div>
+          <p class="brand-eyebrow">CaneGuard Mobile · Implementation &amp; UX Plan</p>
+          <h1 class="brand-title">Zero-Friction Offline Access — No Biometrics Required</h1>
+        </div>
+      </div>
+      <div class="topbar-controls">
+        <a class="nav-pill" href="#decisions">Confirmed Plan</a>
+        <button type="button" class="nav-pill" id="theme-toggle" aria-label="Toggle light or dark mode">
+          <span id="theme-toggle-label">Dark mode</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Quick Navigation -->
+    <nav class="jump-nav" aria-label="Plan sections">
+      <a href="#goal">1. Goal &amp; Reality</a>
+      <a href="#audit">2. Current Friction Audit</a>
+      <a href="#flows">3. Flow Diagrams</a>
+      <a href="#mockups">4. Before vs. After UI</a>
+      <a href="#options">5. Architecture Options</a>
+      <a href="#blueprint">6. Implementation Blueprint</a>
+      <a href="#risks">7. Security &amp; Edge Cases</a>
+      <a href="#verification">8. Verification Matrix</a>
+      <a href="#decisions">9. Confirmed Plan</a>
+    </nav>
+
+    <!-- 1. Executive Summary -->
+    <section class="section" id="goal">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Section 1 · Problem &amp; Goal</p>
+          <h2>Make offline work automatic after sign-in — on every Android phone</h2>
+        </div>
+        <span class="badge badge-success">Decisions Locked · Awaiting Go-Ahead</span>
+      </div>
+
+      <p class="lead">
+        Today, CaneGuard Mobile bundles on-device AI models (Guard V1 + Classifier V2) and an offline-first SQLite database, yet <strong>offline usability breaks before a user even reaches the scanner</strong>. Because offline session persistence is tangled with manual opt-in biometric/device unlock, farmers and inspectors on budget or non-biometric phones get signed out mid-field whenever Android reclaims the app from memory.
+      </p>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-label">Current Setup Steps</span>
+          <span class="stat-val">5 steps</span>
+          <span class="stat-desc">Login → Sheet → Account Security → Enable Unlock → OS Prompt → Download Visits</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Target Setup Steps</span>
+          <span class="stat-val">0 extra</span>
+          <span class="stat-desc">Sign in once online → offline persistence works immediately on every phone</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Biometric Hardware Needed</span>
+          <span class="stat-val">None</span>
+          <span class="stat-desc">Decouple persistence from lock; optional lock supports Biometric, Phone PIN, or 4-digit App PIN</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Accounts Covered</span>
+          <span class="stat-val">Both roles</span>
+          <span class="stat-desc">Field Inspectors (<code>field_reporter</code>) and Farmers (<code>farmer</code>) equally supported</span>
+        </div>
+      </div>
+
+      <div class="callout callout-success">
+        <div class="callout-title">Core Architectural Shift: Decouple "Stay Signed In Offline" from "App Lock"</div>
+        <p>
+          The root cause of every friction point is that one switch (<code>biometricEnabled</code>) currently controls two unrelated things:
+          <strong>(1) whether the session survives an app restart offline</strong>, and
+          <strong>(2) whether the phone prompts for biometric/lock-screen auth on cold start</strong>.
+          Separating them lets <em>every</em> user stay signed in offline automatically after login, while letting optional or role-scoped App Lock adapt gracefully to whatever the phone supports (Biometric → Device PIN → 4-digit CaneGuard PIN).
+        </p>
+      </div>
+    </section>
+
+    <!-- 2. Current Friction Audit -->
+    <section class="section" id="audit">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Section 2 · Codebase Evidence</p>
+          <h2>5 verified blockers in the current offline experience</h2>
+        </div>
+        <span class="badge badge-warning">Verified against branch <code>t3/simplify-offline-access</code></span>
+      </div>
+
+      <div class="grid-2">
+        <article class="audit-card critical">
+          <div class="audit-card-head">
+            <h3>1. Password sign-in dies on app restart</h3>
+            <span class="badge badge-danger">High impact</span>
+          </div>
+          <p>
+            Password sign-ins stay <strong>in memory only</strong> unless <code>biometricEnabled</code> is already on. On budget Android phones in the field, switching to the camera or losing RAM kills the process — dumping the user back to <code>/login</code> with no signal to sign back in.
+          </p>
+          <span class="audit-cite">src/features/auth/providers/AuthProvider.tsx:499-503, 631-651</span>
+        </article>
+
+        <article class="audit-card critical">
+          <div class="audit-card-head">
+            <h3>2. No-lock phones are permanently locked out</h3>
+            <span class="badge badge-danger">Hardware dead-end</span>
+          </div>
+          <p>
+            Phones without biometrics <em>and</em> without a phone screen lock (<code>SecurityLevel.NONE</code> — common on rural/budget Android devices) get <code>status: 'unsupported'</code> or <code>'not-enrolled'</code>. The Enable button is permanently disabled, making offline cold-start impossible.
+          </p>
+          <span class="audit-cite">src/features/auth/services/biometricAuth.ts:22-43 · AccountSecurityScreen.tsx:122</span>
+        </article>
+
+        <article class="audit-card critical">
+          <div class="audit-card-head">
+            <h3>3. Farmers are invisible to offline setup</h3>
+            <span class="badge badge-danger">Farmer UX gap</span>
+          </div>
+          <p>
+            <code>ReadyForFieldSheet</code> immediately dismisses for farmers (<code>if (isFarmer) router.back()</code>). Home hides <code>HomeReadinessLine</code> and Settings hides <code>OfflineReadinessCard</code>. Yet farmers still get signed out on restart — and forcibly kicked out after 30 days even though their scans are 100% local!
+          </p>
+          <span class="audit-cite">ReadyForFieldSheet.tsx:25-29 · home.tsx:206 · settings.tsx:323 · tokenStore.ts:252</span>
+        </article>
+
+        <article class="audit-card">
+          <div class="audit-card-head">
+            <h3>4. Multi-step detour + scary jargon + logout trap</h3>
+            <span class="badge badge-warning">High friction</span>
+          </div>
+          <p>
+            Inspectors must jump Login → <code>ReadyForFieldSheet</code> → <code>Account &amp; Security</code> → Enable → OS prompt. PIN-only phones warn of <em>"weaker protection"</em>. Worse, turning unlock off calls <code>/api/v1/auth/biometric/disable</code> with current password and <strong>logs the user out completely</strong>.
+          </p>
+          <span class="audit-cite">login.tsx:62-64 · AccountSecurityScreen.tsx:204 · AuthProvider.tsx:867-894</span>
+        </article>
+
+        <article class="audit-card">
+          <div class="audit-card-head">
+            <h3>5. False "Not ready" alarm with 0 assigned visits</h3>
+            <span class="badge badge-warning">Confusing status</span>
+          </div>
+          <p>
+            <code>deriveReadiness()</code> demands <code>cachedVisits &gt; 0</code>. An inspector who has 0 visits assigned today — and just wants to run ad-hoc field scans, file Field Reports, and walk plot boundaries — sees an amber <strong>"Not ready for offline work"</strong> warning on Home and Settings.
+          </p>
+          <span class="audit-cite">src/features/auth/domain/sessionState.ts:294 · OfflineReadinessCard.tsx:53</span>
+        </article>
+
+        <article class="audit-card" style="border-left-color: var(--success);">
+          <div class="audit-card-head">
+            <h3>What already works well (keep intact!)</h3>
+            <span class="badge badge-success">Preserve</span>
+          </div>
+          <p>
+            On-device Guard V1 + V2 TFLite models, owner-scoped SQLite storage, 72-hour server-offset inspector capability carry-over (<code>CapabilityGrant</code>), <code>reconnectCoordinator</code> auto-retry, and authoritative server revocation (401/403) are already solid foundations.
+          </p>
+          <span class="audit-cite">sessionState.ts:44-174 · reconnectCoordinator.ts · localDataLifecycle.ts</span>
+        </article>
+      </div>
+    </section>
+
+    <!-- 3. Architecture & Flow Diagrams -->
+    <section class="section" id="flows">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Section 3 · Visual Architecture</p>
+          <h2>How the flow and storage boundary change</h2>
+        </div>
+        <span class="badge badge-info">Click any node or region to annotate</span>
+      </div>
+
+      <!-- Diagram 1: Before vs After Journey -->
+      <div class="diagram-frame">
+        <div class="diagram-caption">
+          <span class="diagram-question">Diagram 1 — Why do field users currently get locked out offline, and how does the new flow eliminate setup overhead?</span>
+          <span class="badge badge-muted">User Journey Comparison</span>
+        </div>
+        <div class="svg-wrap">
+          <svg viewBox="0 0 920 380" role="img" aria-label="Comparison of current 5-step offline setup versus proposed 1-step automatic offline flow">
+            <defs>
+              <marker id="arr-warn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--warning)"/>
+              </marker>
+              <marker id="arr-danger" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--danger)"/>
+              </marker>
+              <marker id="arr-ok" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--success)"/>
+              </marker>
+              <marker id="arr-pri" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--primary)"/>
+              </marker>
+            </defs>
+
+            <!-- TODAY BAND -->
+            <g id="region-today">
+              <title>Current multi-step offline setup flow and failure points</title>
+              <rect x="14" y="14" width="892" height="176" rx="14" fill="var(--surface)" stroke="var(--border)" stroke-width="1.5"/>
+              <rect x="28" y="26" width="136" height="24" rx="12" fill="var(--danger-bg)" stroke="var(--danger)" stroke-width="1"/>
+              <text x="96" y="42" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--danger)">CURRENT FLOW</text>
+              <text x="176" y="42" font-size="12.5" font-weight="600" fill="var(--text-sec)">5 manual hops · Farmers &amp; no-lock phones fall off</text>
+
+              <!-- Node T1 -->
+              <g id="node-today-login">
+                <title>Password login stores session in memory only</title>
+                <rect x="30" y="66" width="128" height="52" rx="10" fill="var(--surface-elev)" stroke="var(--border)" stroke-width="1.5"/>
+                <text x="94" y="88" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--text)">1. Sign In</text>
+                <text x="94" y="106" text-anchor="middle" font-size="11" fill="var(--text-sec)">In-memory only</text>
+              </g>
+
+              <line x1="158" y1="92" x2="194" y2="92" stroke="var(--warning)" stroke-width="2" marker-end="url(#arr-warn)"/>
+
+              <!-- Node T2 -->
+              <g id="node-today-sheet">
+                <title>ReadyForFieldSheet shown only to inspectors with OS lock</title>
+                <rect x="198" y="66" width="146" height="52" rx="10" fill="var(--warning-bg)" stroke="var(--warning)" stroke-width="1.5"/>
+                <text x="271" y="88" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--text)">2. Field Sheet</text>
+                <text x="271" y="106" text-anchor="middle" font-size="11" fill="var(--warning)">Skipped for farmers</text>
+              </g>
+
+              <line x1="344" y1="92" x2="380" y2="92" stroke="var(--warning)" stroke-width="2" marker-end="url(#arr-warn)"/>
+
+              <!-- Node T3 -->
+              <g id="node-today-sec">
+                <title>Account Security screen requires OS biometric or screen lock</title>
+                <rect x="384" y="66" width="152" height="52" rx="10" fill="var(--warning-bg)" stroke="var(--warning)" stroke-width="1.5"/>
+                <text x="460" y="88" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--text)">3. Account Sec.</text>
+                <text x="460" y="106" text-anchor="middle" font-size="11" fill="var(--warning)">Disabled if no lock</text>
+              </g>
+
+              <line x1="536" y1="92" x2="572" y2="92" stroke="var(--warning)" stroke-width="2" marker-end="url(#arr-warn)"/>
+
+              <!-- Node T4 -->
+              <g id="node-today-os">
+                <title>OS biometric or device PIN prompt and manual visit download</title>
+                <rect x="576" y="66" width="144" height="52" rx="10" fill="var(--surface-elev)" stroke="var(--border)" stroke-width="1.5"/>
+                <text x="648" y="88" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--text)">4. OS Prompt</text>
+                <text x="648" y="106" text-anchor="middle" font-size="11" fill="var(--text-sec)">+ Download visits</text>
+              </g>
+
+              <line x1="720" y1="92" x2="754" y2="92" stroke="var(--warning)" stroke-width="2" marker-end="url(#arr-warn)"/>
+
+              <!-- Node T5 -->
+              <g id="node-today-ready">
+                <title>Only then is offline restart possible</title>
+                <rect x="758" y="66" width="132" height="52" rx="10" fill="var(--surface-elev)" stroke="var(--border)" stroke-width="1.5"/>
+                <text x="824" y="88" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--text)">5. Offline OK</text>
+                <text x="824" y="106" text-anchor="middle" font-size="11" fill="var(--text-sec)">Only if visits &gt; 0</text>
+              </g>
+
+              <!-- Cliff drop-offs -->
+              <path d="M 94 118 L 94 156 L 232 156" fill="none" stroke="var(--danger)" stroke-width="1.8" stroke-dasharray="4 3" marker-end="url(#arr-danger)"/>
+              <path d="M 271 118 L 271 138" fill="none" stroke="var(--danger)" stroke-width="1.8" stroke-dasharray="4 3" marker-end="url(#arr-danger)"/>
+              <path d="M 460 118 L 460 156 L 638 156" fill="none" stroke="var(--danger)" stroke-width="1.8" stroke-dasharray="4 3" marker-end="url(#arr-danger)"/>
+
+              <g id="node-today-drop">
+                <title>Failure drop-off: Farmers, users who tap Not Now, and no-lock phones get logged out offline on app restart</title>
+                <rect x="236" y="140" width="400" height="36" rx="8" fill="var(--danger-bg)" stroke="var(--danger)" stroke-width="1.3"/>
+                <text x="436" y="162" text-anchor="middle" font-size="12" font-weight="700" fill="var(--danger)">App killed in field → Forced back to Login (blocked offline)</text>
+              </g>
+            </g>
+
+            <!-- PROPOSED BAND -->
+            <g id="region-proposed">
+              <title>Proposed 1-step zero-friction offline flow for all roles and devices</title>
+              <rect x="14" y="206" width="892" height="160" rx="14" fill="var(--success-bg)" stroke="var(--success)" stroke-width="1.5"/>
+              <rect x="28" y="218" width="150" height="24" rx="12" fill="var(--primary)" stroke="none"/>
+              <text x="103" y="234" text-anchor="middle" font-size="11.5" font-weight="700" fill="var(--on-primary)">PROPOSED FLOW</text>
+              <text x="190" y="234" font-size="12.5" font-weight="600" fill="var(--text)">1 step · Auto-persisted in SecureStore · Optional universal App Lock</text>
+
+              <!-- Node P1 -->
+              <g id="node-prop-login">
+                <title>Single sign-in online persists encrypted session automatically</title>
+                <rect x="30" y="258" width="184" height="60" rx="12" fill="var(--surface-elev)" stroke="var(--primary)" stroke-width="2"/>
+                <text x="122" y="283" text-anchor="middle" font-size="13" font-weight="700" fill="var(--primary-dark)">1. Sign In Once</text>
+                <text x="122" y="302" text-anchor="middle" font-size="11.5" fill="var(--text-sec)">Farmer or Inspector</text>
+              </g>
+
+              <line x1="214" y1="288" x2="262" y2="288" stroke="var(--success)" stroke-width="2.2" marker-end="url(#arr-ok)"/>
+
+              <!-- Node P2 -->
+              <g id="node-prop-auto">
+                <title>Automatic background persistence, capability grant, and offline data caching</title>
+                <rect x="266" y="258" width="266" height="60" rx="12" fill="var(--surface-elev)" stroke="var(--success)" stroke-width="1.8"/>
+                <text x="399" y="282" text-anchor="middle" font-size="13" font-weight="700" fill="var(--success)">Auto-Prepared in Background</text>
+                <text x="399" y="302" text-anchor="middle" font-size="11.5" fill="var(--text-sec)">SecureStore + 72h grant + Visits/Refs</text>
+              </g>
+
+              <line x1="532" y1="288" x2="580" y2="288" stroke="var(--success)" stroke-width="2.2" marker-end="url(#arr-ok)"/>
+
+              <!-- Node P3 -->
+              <g id="node-prop-field">
+                <title>Works offline immediately after any restart on any Android phone</title>
+                <rect x="584" y="258" width="306" height="60" rx="12" fill="var(--primary)" stroke="none"/>
+                <text x="737" y="283" text-anchor="middle" font-size="13.5" font-weight="700" fill="var(--on-primary)">Ready Offline Immediately</text>
+                <text x="737" y="302" text-anchor="middle" font-size="11.5" fill="var(--on-primary)" opacity="0.88">Survives restarts · Every phone · 0 setup</text>
+              </g>
+
+              <!-- Optional lock branch -->
+              <g id="node-prop-optlock">
+                <title>Optional App Lock in Account Security for shared devices</title>
+                <text x="399" y="346" text-anchor="middle" font-size="12" font-weight="600" fill="var(--primary-dark)">Optional in Settings → Account Security: Add App Lock (Biometric / Phone PIN / 4-digit Quick PIN)</text>
+              </g>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Diagram 2: Decoupled Storage & Adaptive Lock Architecture -->
+      <div class="diagram-frame">
+        <div class="diagram-caption">
+          <span class="diagram-question">Diagram 2 — How does CaneGuard keep offline sessions safe without requiring biometric hardware?</span>
+          <span class="badge badge-muted">Decoupled Security Layers</span>
+        </div>
+        <div class="svg-wrap">
+          <svg viewBox="0 0 920 340" role="img" aria-label="Decoupled architecture separating Session Persistence from Adaptive Local Lock and Server Authority">
+            <defs>
+              <marker id="arr-dark" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="var(--primary)"/>
+              </marker>
+            </defs>
+
+            <!-- Layer 1: Persistence -->
+            <g id="layer-persistence">
+              <title>Layer 1: Automatic encrypted session persistence in OS SecureStore</title>
+              <rect x="16" y="18" width="276" height="296" rx="14" fill="var(--surface-elev)" stroke="var(--primary)" stroke-width="1.8"/>
+              <rect x="30" y="32" width="248" height="28" rx="8" fill="var(--primary)"/>
+              <text x="154" y="50" text-anchor="middle" font-size="12" font-weight="700" fill="var(--on-primary)">LAYER 1 · SESSION PERSISTENCE</text>
+              <text x="154" y="80" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--text)">Always ON after Sign-In</text>
+
+              <rect x="32" y="96" width="244" height="58" rx="10" fill="var(--bg)" stroke="var(--border)" stroke-width="1.2"/>
+              <text x="154" y="119" text-anchor="middle" font-size="12" font-weight="700" fill="var(--primary-dark)">Encrypted SecureStore</text>
+              <text x="154" y="138" text-anchor="middle" font-size="11" fill="var(--text-sec)">AFTER_FIRST_UNLOCK_THIS_DEVICE</text>
+
+              <rect x="32" y="166" width="244" height="58" rx="10" fill="var(--bg)" stroke="var(--border)" stroke-width="1.2"/>
+              <text x="154" y="189" text-anchor="middle" font-size="12" font-weight="700" fill="var(--primary-dark)">No Password Stored</text>
+              <text x="154" y="208" text-anchor="middle" font-size="11" fill="var(--text-sec)">Bearer token + dated CapabilityGrant</text>
+
+              <rect x="32" y="236" width="244" height="60" rx="10" fill="var(--bg)" stroke="var(--border)" stroke-width="1.2"/>
+              <text x="154" y="259" text-anchor="middle" font-size="12" font-weight="700" fill="var(--primary-dark)">Owner-Partitioned SQLite</text>
+              <text x="154" y="278" text-anchor="middle" font-size="11" fill="var(--text-sec)">allowBackup=false · Logout wipes all</text>
+            </g>
+
+            <!-- Connector 1->2 -->
+            <line x1="292" y1="166" x2="320" y2="166" stroke="var(--primary)" stroke-width="2" marker-end="url(#arr-dark)"/>
+
+            <!-- Layer 2: Adaptive Lock -->
+            <g id="layer-lock">
+              <title>Layer 2: Independent Adaptive App Lock supporting every device class</title>
+              <rect x="324" y="18" width="286" height="296" rx="14" fill="var(--surface-elev)" stroke="var(--accent-dark)" stroke-width="1.8"/>
+              <rect x="338" y="32" width="258" height="28" rx="8" fill="var(--warning-bg)" stroke="var(--warning)" stroke-width="1"/>
+              <text x="467" y="50" text-anchor="middle" font-size="12" font-weight="700" fill="var(--warning)">LAYER 2 · ADAPTIVE APP LOCK</text>
+              <text x="467" y="80" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--text)">Universal Device Support</text>
+
+              <g id="lock-tier-0">
+                <title>Farmers: instant offline resume with zero cold-start lock prompts</title>
+                <rect x="340" y="94" width="254" height="44" rx="9" fill="var(--success-bg)" stroke="var(--success)" stroke-width="1.2"/>
+                <text x="467" y="113" text-anchor="middle" font-size="12" font-weight="700" fill="var(--success)">Farmers: Seamless Resume</text>
+                <text x="467" y="129" text-anchor="middle" font-size="10.8" fill="var(--text-sec)">0 prompts · Optional App Lock in Settings</text>
+              </g>
+
+              <g id="lock-tier-1">
+                <title>Inspectors with OS lock: auto OS Biometric or Device PIN/Pattern</title>
+                <rect x="340" y="148" width="254" height="46" rx="9" fill="var(--bg)" stroke="var(--border)" stroke-width="1.2"/>
+                <text x="467" y="168" text-anchor="middle" font-size="12" font-weight="700" fill="var(--primary-dark)">Inspectors: Auto OS Lock</text>
+                <text x="467" y="184" text-anchor="middle" font-size="10.8" fill="var(--text-sec)">Biometric or Phone PIN (SecurityLevel &gt;= SECRET)</text>
+              </g>
+
+              <g id="lock-tier-2">
+                <title>Inspectors on no-lock phones: 4-digit CaneGuard Quick PIN</title>
+                <rect x="340" y="204" width="254" height="48" rx="9" fill="var(--info-bg)" stroke="var(--info)" stroke-width="1.2"/>
+                <text x="467" y="224" text-anchor="middle" font-size="12" font-weight="700" fill="var(--info)">Inspectors (No Lock): 4-Digit PIN</text>
+                <text x="467" y="241" text-anchor="middle" font-size="10.8" fill="var(--text-sec)">Works even when SecurityLevel = NONE</text>
+              </g>
+
+              <text x="467" y="278" text-anchor="middle" font-size="11" fill="var(--text-sec)">Salted hash in SecureStore · 5-try lockout</text>
+              <text x="467" y="294" text-anchor="middle" font-size="11" font-weight="600" fill="var(--success)">Confirmed Policy: Option C (Role-Aware)</text>
+            </g>
+
+            <!-- Connector 2->3 -->
+            <line x1="610" y1="166" x2="638" y2="166" stroke="var(--primary)" stroke-width="2" marker-end="url(#arr-dark)"/>
+
+            <!-- Layer 3: Server Authority -->
+            <g id="layer-authority">
+              <title>Layer 3: Unchanged server authority, carry-over bounds, and revocation</title>
+              <rect x="642" y="18" width="262" height="296" rx="14" fill="var(--surface-elev)" stroke="var(--border)" stroke-width="1.8"/>
+              <rect x="656" y="32" width="234" height="28" rx="8" fill="var(--surface-muted)" stroke="var(--border)" stroke-width="1"/>
+              <text x="773" y="50" text-anchor="middle" font-size="12" font-weight="700" fill="var(--primary-dark)">LAYER 3 · SERVER BOUNDS</text>
+              <text x="773" y="80" text-anchor="middle" font-size="12.5" font-weight="700" fill="var(--text)">Security Invariants Kept</text>
+
+              <rect x="658" y="96" width="230" height="58" rx="10" fill="var(--bg)" stroke="var(--border)" stroke-width="1.2"/>
+              <text x="773" y="119" text-anchor="middle" font-size="12" font-weight="700" fill="var(--primary-dark)">Inspector 72h Carry-Over</text>
+              <text x="773" y="138" text-anchor="middle" font-size="11" fill="var(--text-sec)">Server-clock offset · Auto-refreshes</text>
+
+              <rect x="658" y="166" width="230" height="58" rx="10" fill="var(--bg)" stroke="var(--border)" stroke-width="1.2"/>
+              <text x="773" y="189" text-anchor="middle" font-size="12" font-weight="700" fill="var(--primary-dark)">Immediate Revocation</text>
+              <text x="773" y="208" text-anchor="middle" font-size="11" fill="var(--text-sec)">401/403 wipes token on reconnect</text>
+
+              <rect x="658" y="236" width="230" height="60" rx="10" fill="var(--bg)" stroke="var(--border)" stroke-width="1.2"/>
+              <text x="773" y="259" text-anchor="middle" font-size="12" font-weight="700" fill="var(--primary-dark)">Farmer Local Continuity</text>
+              <text x="773" y="278" text-anchor="middle" font-size="11" fill="var(--text-sec)">Personal scans never hit office API</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Interactive Phone UI Mockups -->
+    <section class="section" id="mockups">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Section 4 · Interactive Product Preview</p>
+          <h2>Before vs. After on real CaneGuard Mobile screens</h2>
+        </div>
+        <span class="badge badge-primary">Rendered in CaneGuard theme tokens</span>
+      </div>
+
+      <p class="lead">
+        Switch the role, device lock capability, and screen below to inspect exactly what a field worker or farmer sees today versus the simplified experience.
+      </p>
+
+      <div class="studio-controls" role="region" aria-label="Mockup preview controls">
+        <div class="control-group">
+          <span class="control-label">Role:</span>
+          <button type="button" class="seg-btn" data-role="farmer-tl" aria-pressed="true">Farmer (Tagalog)</button>
+          <button type="button" class="seg-btn" data-role="farmer-en" aria-pressed="false">Farmer (English)</button>
+          <button type="button" class="seg-btn" data-role="inspector" aria-pressed="false">Field Inspector</button>
+        </div>
+        <div class="control-group">
+          <span class="control-label">Phone:</span>
+          <button type="button" class="seg-btn" data-device="none" aria-pressed="true">No Screen Lock</button>
+          <button type="button" class="seg-btn" data-device="pin" aria-pressed="false">PIN Only</button>
+          <button type="button" class="seg-btn" data-device="bio" aria-pressed="false">Fingerprint</button>
+        </div>
+        <div class="control-group">
+          <span class="control-label">Screen:</span>
+          <button type="button" class="seg-btn" data-screen="restart" aria-pressed="true">Offline Restart</button>
+          <button type="button" class="seg-btn" data-screen="home" aria-pressed="false">Home</button>
+          <button type="button" class="seg-btn" data-screen="security" aria-pressed="false">Account Security</button>
+          <button type="button" class="seg-btn" data-screen="login" aria-pressed="false">Login</button>
+        </div>
+      </div>
+
+      <div class="phones-pair">
+        <div class="phone-col">
+          <div class="phone-col-head">
+            <span class="badge badge-danger">BEFORE (Current App)</span>
+            <span id="before-note" style="font-size: 12.5px; color: var(--text-sec);">Blocked offline</span>
+          </div>
+          <div class="phone-frame" id="phone-before">
+            <div class="phone-statusbar">
+              <span>9:41 AM</span>
+              <span>No Signal · Offline</span>
+            </div>
+            <div class="phone-body" id="phone-before-body"></div>
+          </div>
+        </div>
+
+        <div class="phone-col">
+          <div class="phone-col-head">
+            <span class="badge badge-success">AFTER (Simplified Offline)</span>
+            <span id="after-note" style="font-size: 12.5px; color: var(--text-sec);">Ready immediately</span>
+          </div>
+          <div class="phone-frame" id="phone-after">
+            <div class="phone-statusbar">
+              <span>9:41 AM</span>
+              <span>No Signal · Offline</span>
+            </div>
+            <div class="phone-body" id="phone-after-body"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Architecture Options Comparison -->
+    <section class="section" id="options">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Section 5 · Selected Architecture</p>
+          <h2>Selected: Option C (Role-Aware Offline Access)</h2>
+        </div>
+        <span class="badge badge-success">Confirmed</span>
+      </div>
+
+      <p class="lead">
+        All three options <strong>remove biometric hardware as a requirement</strong>, <strong>eliminate the 5-step Account Security setup maze</strong>, fix the <strong>0-visit false readiness alarm</strong>, and bring <strong>farmers</strong> into first-class offline support. They differ only on <em>whether cold-start prompts a local lock by default</em>.
+      </p>
+
+      <div class="grid-3">
+        <!-- Option A -->
+        <article class="option-card">
+          <div class="option-meta">
+            <span class="badge badge-muted">Option A</span>
+            <span class="badge badge-success">Lowest friction</span>
+          </div>
+          <h3>Seamless Stay-Signed-In + Optional App Lock</h3>
+          <p style="font-size: 13.5px; color: var(--text-sec);">
+            Sign in once online → both Farmers and Inspectors resume directly into Home after any offline restart. App Lock (Biometric / Phone PIN / 4-digit CaneGuard PIN) is optional in Settings for shared phones.
+          </p>
+          <ul class="pros-cons">
+            <li><strong>0 setup steps</strong> on every phone (including no-lock Android devices).</li>
+            <li>Zero unlock friction in bright sun with muddy/gloved hands in the field.</li>
+            <li><strong>Tradeoff:</strong> Relaxes security fix <code>#70</code> for inspectors on unlocked/shared phones — anyone holding an unlocked inspector phone can reopen CaneGuard until logout.</li>
+          </ul>
+        </article>
+
+        <!-- Option C (Selected) -->
+        <article class="option-card recommended">
+          <div class="option-meta">
+            <span class="badge badge-primary">Option C · Selected</span>
+            <span class="badge badge-success">Confirmed Direction</span>
+          </div>
+          <h3>Role-Aware: Seamless for Farmers, Adaptive Lock for Inspectors</h3>
+          <p style="font-size: 13.5px; color: var(--text-sec);">
+            <strong>Farmers</strong> stay signed in offline silently with zero lock prompts (personal scans never touch office pipelines). <strong>Inspectors</strong> auto-persist on login with a single adaptive local gate: OS Biometric/PIN if available, or a quick 4-digit CaneGuard PIN on no-lock phones (with an option to turn off if using a dedicated personal phone, or keep on for shared LGU phones).
+          </p>
+          <ul class="pros-cons">
+            <li><strong>Matches real threat model:</strong> Farmers get zero-friction field scanning; office-authorized inspector data &amp; report authoring stay protected on shared/lost phones.</li>
+            <li><strong>0 setup steps</strong> for Farmers and for Inspectors whose phone already has a screen lock; 1 inline 4-digit PIN only if an inspector phone has no screen lock at all.</li>
+            <li><strong>Tradeoff:</strong> Slight behavioral difference between roles (clear, simple copy explains why).</li>
+          </ul>
+        </article>
+
+        <!-- Option B -->
+        <article class="option-card">
+          <div class="option-meta">
+            <span class="badge badge-muted">Option B</span>
+            <span class="badge badge-warning">Strictest local lock</span>
+          </div>
+          <h3>Auto-Persist + Mandatory Universal Local Lock (Both Roles)</h3>
+          <p style="font-size: 13.5px; color: var(--text-sec);">
+            Every account auto-persists on sign-in, and cold-start always prompts: OS Biometric/PIN if the phone has one, or an inline 4-digit CaneGuard Quick PIN setup right after login if the phone has no screen lock.
+          </p>
+          <ul class="pros-cons">
+            <li>Preserves 100% of security fix <code>#70</code> ("no silent cold-start restore") across all accounts while still removing biometric hardware barriers.</li>
+            <li><strong>Tradeoff:</strong> Adds a 4-digit PIN setup + cold-start unlock prompt for rural farmers who have low security sensitivity and just want to photograph a cane leaf quickly.</li>
+          </ul>
+        </article>
+      </div>
+
+      <!-- Aligned comparison table -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Criterion</th>
+              <th>Current App</th>
+              <th>Option A (Seamless + Opt Lock)</th>
+              <th>Option C (Role-Aware · Rec.)</th>
+              <th>Option B (Always Lock w/ PIN)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Farmer setup steps</strong></td>
+              <td>Hidden (must find Account Security)</td>
+              <td><strong>0 steps</strong></td>
+              <td><strong>0 steps</strong></td>
+              <td>0 (with phone lock) / 1 PIN step (no lock)</td>
+            </tr>
+            <tr>
+              <td><strong>Inspector setup steps</strong></td>
+              <td>5 steps + visit download</td>
+              <td><strong>0 steps</strong></td>
+              <td><strong>0</strong> (phone lock) / <strong>1 PIN step</strong> (no lock)</td>
+              <td>0 (phone lock) / 1 PIN step (no lock)</td>
+            </tr>
+            <tr>
+              <td><strong>Phone without biometrics</strong></td>
+              <td>Manual PIN opt-in + scary warning</td>
+              <td>Works seamlessly</td>
+              <td>Works automatically</td>
+              <td>Works automatically</td>
+            </tr>
+            <tr>
+              <td><strong>Phone with NO screen lock</strong></td>
+              <td><span class="badge badge-danger">Blocked</span></td>
+              <td>Works seamlessly (+ optional 4-digit PIN)</td>
+              <td>Farmer: seamless · Inspector: 4-digit PIN</td>
+              <td>4-digit CaneGuard PIN</td>
+            </tr>
+            <tr>
+              <td><strong>Shared/lost inspector phone protection</strong></td>
+              <td>High (if user enabled it)</td>
+              <td>Opt-in only (relaxes <code>#70</code>)</td>
+              <td><strong>High by default</strong> (keeps <code>#70</code> for office data)</td>
+              <td>High for all accounts</td>
+            </tr>
+            <tr>
+              <td><strong>Backend API changes needed?</strong></td>
+              <td>—</td>
+              <td><strong>None required</strong> (client-only)</td>
+              <td><strong>None required</strong> (client-only)</td>
+              <td><strong>None required</strong> (client-only)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 6. Implementation Blueprint -->
+    <section class="section" id="blueprint">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Section 6 · Engineering Blueprint</p>
+          <h2>Ordered changes, affected files, and data contracts</h2>
+        </div>
+        <span class="badge badge-success">Zero breaking backend changes</span>
+      </div>
+
+      <div class="phase-list">
+        <div class="phase-item">
+          <div class="phase-num">1</div>
+          <div class="phase-body">
+            <h3>Decouple Session Persistence from Biometrics in <code>tokenStore.ts</code> &amp; <code>AuthProvider.tsx</code></h3>
+            <p style="font-size: 14px; color: var(--text-sec);">
+              Replace the binary <code>biometricEnabled</code> gate with two explicit concepts: <strong>session persistence</strong> (always saved on successful login in <code>SecureStore</code> with <code>AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY</code>) and <strong><code>localLockMode</code></strong> (<code>'none' | 'device' | 'app-pin'</code>).
+            </p>
+            <ul class="phase-bullets">
+              <li>On <code>login()</code>: immediately persist <code>MobileSession</code> (including fresh <code>CapabilityGrant</code>) to SecureStore so cold-start offline works from minute one.</li>
+              <li>On cold-start bootstrap: read <code>localLockMode</code>; if <code>'none'</code>, hydrate directly; if <code>'device'</code>, run one <code>LocalAuthentication</code> prompt (biometric OR device PIN); if <code>'app-pin'</code>, show CaneGuard's 4-digit Quick PIN unlock screen before reading the session.</li>
+              <li>Auto-migrate existing installations seamlessly: if legacy <code>BIOMETRIC_ENABLED_KEY === 'true'</code>, map to <code>localLockMode = 'device'</code> without forcing re-login!</li>
+              <li>On explicit <code>logout()</code> or authoritative 401/403 revocation: wipe session, <code>localLockMode</code>, and App PIN hash (fail-closed, unchanged).</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="phase-item">
+          <div class="phase-num">2</div>
+          <div class="phase-body">
+            <h3>Add Universal 4-Digit Quick PIN Service &amp; Remove the Disable-Unlock Logout Trap</h3>
+            <p style="font-size: 14px; color: var(--text-sec);">
+              Create a lightweight <code>appPinAuth.ts</code> service using <code>expo-crypto</code> (already available or lightweight pure-JS PBKDF2/SHA-256 with random 16-byte salt) stored in <code>SecureStore</code>.
+            </p>
+            <ul class="phase-bullets">
+              <li>Store <code>{ saltHex, hashHex, failedAttempts, lockedUntil }</code> in <code>SecureStore</code> — never plaintext, never stored in AsyncStorage or SQLite.</li>
+              <li>After 5 failed PIN attempts, wipe the cached session and require online password login (prevents brute-force on a lost phone!).</li>
+              <li>Add a clean native <code>formSheet</code> (<code>app-pin-setup.tsx</code>) using <code>SheetScreen</code> for setting/changing the 4-digit PIN, and an unlock screen integrated with <code>login.tsx</code> (with "Use password instead" escape hatch).</li>
+              <li>Fix <code>AccountSecurityScreen</code>: toggling App Lock off verifies current lock/PIN locally instead of calling <code>disableBiometricApi</code> + logging the user out! (Keep <code>disableBiometric</code> API helper intact only if needed for server audit, or stop invoking forced logout.)</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="phase-item">
+          <div class="phase-num">3</div>
+          <div class="phase-body">
+            <h3>Fix Offline Readiness Logic &amp; Retire <code>ReadyForFieldSheet</code> Maze</h3>
+            <p style="font-size: 14px; color: var(--text-sec);">
+              Stop treating 0 assigned visits or missing biometric hardware as "Not ready for offline work".
+            </p>
+            <ul class="phase-bullets">
+              <li>Update <code>deriveReadiness()</code> in <code>src/features/auth/domain/sessionState.ts</code>:
+                <ul>
+                  <li>Remove <code>'turn-on-biometric'</code> as a blocking readiness step (session persistence is now automatic!).</li>
+                  <li>Decouple <code>cachedVisits === 0</code> from core offline readiness: show visit count neutrally (e.g., <em>"0 office visits assigned — you can still scan &amp; file field reports offline"</em>) rather than an amber failure state.</li>
+                  <li>Only flag <code>not-ready</code> when action is genuinely needed: <code>'confirm-access'</code> (inspector 72h carry-over &lt;12h or expired), <code>'sign-in'</code> (session expired), or <code>'ask-office'</code> (capability revoked).</li>
+                </ul>
+              </li>
+              <li>Retire the post-login <code>ReadyForFieldSheet</code> detour on <code>login.tsx</code> (for Option C/B, only show the 1-step 4-digit PIN sheet if an inspector signs in on a phone with <code>SecurityLevel.NONE</code>).</li>
+              <li>Give Farmers a calm, bilingual <strong>Offline Status</strong> line in Settings (<em>"Handa offline — naka-save ang account at mga scan mo sa phone na ito"</em>) and remove the scary <em>"Password-only sign-in"</em> amber box from <code>login.tsx</code>.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="phase-item">
+          <div class="phase-num">4</div>
+          <div class="phase-body">
+            <h3>Address Farmer 30-Day Offline Expiry &amp; Update Copy / Security Docs</h3>
+            <p style="font-size: 14px; color: var(--text-sec);">
+              Ensure a farmer who stays offline in remote areas for &gt;30 days isn't abruptly locked out of their own local personal scan history and on-device AI scanner.
+            </p>
+            <ul class="phase-bullets">
+              <li>Single-source all new English &amp; Tagalog copy in <code>src/constants/copy.ts</code> (replacing <em>"weaker protection"</em> and biometric-only phrasing with plain language: <em>"Offline access"</em> / <em>"App lock"</em>).</li>
+              <li><strong>Confirmed Farmer Personal-Scan Offline Grace Mode:</strong> When a farmer's token expires after 30 days offline, keep their local owner identity hydrated in read/scan grace mode so they can still open past scans and run on-device AI checks without being kicked to <code>/login</code>. Show a quiet bilingual banner asking them to sign in again when online for account/server features. Zero backend changes required.</li>
+              <li>Update <code>docs/security/mobile-security-fixes.md</code> (<code>#70</code>) and <code>PROJECT_CONTEXT.md</code> to truthfully document the updated storage &amp; lock boundary.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Affected files table -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Area / File</th>
+              <th>Change Summary</th>
+              <th>Backend Impact</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>src/features/auth/services/tokenStore.ts</code></td>
+              <td>Always persist session in SecureStore on login; store <code>localLockMode</code> (<code>none | device | app-pin</code>); migrate legacy <code>biometric-enabled</code> key seamlessly.</td>
+              <td>None</td>
+            </tr>
+            <tr>
+              <td><code>src/features/auth/services/appPinAuth.ts</code> <em>(new)</em></td>
+              <td>Salted hash storage in SecureStore, 4-digit PIN verify, 5-attempt lockout wiping cached session.</td>
+              <td>None</td>
+            </tr>
+            <tr>
+              <td><code>src/features/auth/services/biometricAuth.ts</code></td>
+              <td>Simplify capability check to return clean unlock labels (<code>biometric</code> vs <code>device-credential</code> vs <code>none</code>) without blocking persistence.</td>
+              <td>None</td>
+            </tr>
+            <tr>
+              <td><code>src/features/auth/providers/AuthProvider.tsx</code></td>
+              <td>Auto-persist on <code>login()</code>; handle <code>'locked'</code> cold-start state for Device Lock or App PIN; local lock toggle without forced logout.</td>
+              <td>None</td>
+            </tr>
+            <tr>
+              <td><code>src/features/auth/domain/sessionState.ts</code> &amp; <code>useOfflineReadiness.ts</code></td>
+              <td>Remove <code>turn-on-biometric</code> blocker; stop flagging <code>cachedVisits === 0</code> as not-ready; support calm farmer offline readiness.</td>
+              <td>None</td>
+            </tr>
+            <tr>
+              <td><code>src/app/login.tsx</code>, <code>AccountSecurityScreen.tsx</code>, <code>OfflineReadinessCard.tsx</code>, <code>HomeReadinessLine.tsx</code></td>
+              <td>Remove scary password-only warning &amp; <code>ReadyForFieldSheet</code> detour; add clean App Lock row (Off / Device Lock / 4-digit PIN) &amp; calm status card.</td>
+              <td>None</td>
+            </tr>
+            <tr>
+              <td><code>src/constants/copy.ts</code> &amp; <code>docs/security/mobile-security-fixes.md</code></td>
+              <td>Plain-language EN + TL copy for offline access &amp; App Lock; update security boundary doc <code>#70</code>.</td>
+              <td>Optional: longer farmer token TTL if chosen in Q2</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 7. Security, Risks & Edge Cases -->
+    <section class="section" id="risks">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Section 7 · Risks, Security &amp; Edge Cases</p>
+          <h2>What could go wrong — and how the plan guards against it</h2>
+        </div>
+        <span class="badge badge-warning">Security Boundary Update (#70)</span>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3>Shared or Lost Field Phone</h3>
+          <p style="font-size: 14px; color: var(--text-sec); margin-top: 6px;">
+            <strong>Risk:</strong> If an inspector loses a phone with no lock, someone could open CaneGuard and view cached visit addresses/photos or draft a fake report.<br>
+            <strong>Mitigation:</strong> Under recommended <strong>Option C</strong>, inspector cold-start always uses OS Lock or 4-digit Quick PIN (5-try lockout wipes token). Explicit <strong>Logout</strong> immediately revokes server token + wipes SecureStore. Server <code>/me</code> revocation clears access on next signal.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>User Forgets 4-Digit Quick PIN Offline</h3>
+          <p style="font-size: 14px; color: var(--text-sec); margin-top: 6px;">
+            <strong>Risk:</strong> A user forgets their CaneGuard Quick PIN.<br>
+            <strong>Mitigation:</strong> Unlock screen always shows <em>"Sign in with password instead"</em>. After 5 failed PIN entries, the stored token is wiped (local SQLite drafts/scans remain intact for the owner!) and a fresh password sign-in online resets the PIN cleanly.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>Existing Users Upgrading the App</h3>
+          <p style="font-size: 14px; color: var(--text-sec); margin-top: 6px;">
+            <strong>Risk:</strong> Inspectors who already enabled biometric/device unlock could get silently signed out or lose their preference on app update.<br>
+            <strong>Mitigation:</strong> On bootstrap, if <code>PROTECTED_SESSION_KEY</code> + <code>BIOMETRIC_ENABLED_KEY === 'true'</code> exist, auto-read as <code>localLockMode = 'device'</code> and keep the session alive. Zero forced logouts on upgrade.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>User Removes OS Screen Lock Later</h3>
+          <p style="font-size: 14px; color: var(--text-sec); margin-top: 6px;">
+            <strong>Risk:</strong> User had Phone PIN enabled, then removes their phone lock in Android Settings while offline.<br>
+            <strong>Mitigation:</strong> Today this wipes the session and locks them out! With the new model: if OS lock disappears, detect gracefully — for Farmer (Option C) or Option A fall back cleanly; for strict Inspector lock, prompt to sign in with password or set Quick PIN instead of crashing with opaque Keystore error.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>Inspector 72h Carry-Over vs. Persistence</h3>
+          <p style="font-size: 14px; color: var(--text-sec); margin-top: 6px;">
+            <strong>Edge Case:</strong> Staying signed in does NOT mean unlimited offline inspector authoring.<br>
+            <strong>Guard:</strong> Keep the server-offset <code>CARRYOVER_WINDOW_MS</code> (72h) for finalizing official Field Reports / Visits. When it expires offline, the user still stays signed in, can view all saved work, and sees one clear message: <em>"Connect to confirm office access before finalizing."</em>
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>Rollback &amp; Backwards Compatibility</h3>
+          <p style="font-size: 14px; color: var(--text-sec); margin-top: 6px;">
+            <strong>Safety:</strong> Because this requires zero backend contract changes and preserves SQLite schemas untouched, rolling back simply reverts the client auth store logic. All local scans, reports, and outbox items remain completely intact across upgrades or rollbacks.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Verification Matrix -->
+    <section class="section" id="verification">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Section 8 · Verification Plan</p>
+          <h2>Acceptance criteria mapped to regression tests</h2>
+        </div>
+        <span class="badge badge-muted">Test Ladder Ready</span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Acceptance Criterion</th>
+              <th>Regression Test That Fails If Broken</th>
+              <th>Tier</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Farmer signs in on a phone with <strong>no biometrics &amp; no screen lock</strong>, kills app, goes offline, reopens → lands directly in Home with scans accessible.</td>
+              <td><code>AuthProvider.test.tsx</code> (cold-start restore with <code>SecurityLevel.NONE</code> + offline <code>/me</code> transport error)</td>
+              <td><span class="badge badge-info">Unit / Jest</span></td>
+            </tr>
+            <tr>
+              <td>Inspector signs in on a phone with <strong>PIN-only</strong> (no biometric hardware) → no <code>ReadyForFieldSheet</code> detour; cold-start prompts device PIN once and restores 72h carry-over.</td>
+              <td><code>AuthProvider.biometricPrompts.test.tsx</code> &amp; <code>login.test.tsx</code></td>
+              <td><span class="badge badge-info">Unit / Jest</span></td>
+            </tr>
+            <tr>
+              <td>Inspector on a phone with <strong>no screen lock</strong> sets a 4-digit Quick PIN → survives offline restart, locks out after 5 wrong guesses, keeps local SQLite drafts intact.</td>
+              <td><code>appPinAuth.test.ts</code> &amp; <code>AuthProvider.appPin.test.tsx</code> <em>(new)</em></td>
+              <td><span class="badge badge-info">Unit / Jest</span></td>
+            </tr>
+            <tr>
+              <td>Inspector with <strong>0 assigned visits</strong> sees "Ready offline" (not amber warning) and can scan &amp; save a Field Report offline.</td>
+              <td><code>sessionState.test.ts</code> (<code>deriveReadiness</code> with <code>cachedVisits: 0</code>) &amp; <code>OfflineReadinessCard.test.tsx</code></td>
+              <td><span class="badge badge-info">Unit / Jest</span></td>
+            </tr>
+            <tr>
+              <td>Turning App Lock off in Account Security does <strong>not</strong> log the user out or call remote revocation.</td>
+              <td><code>AccountSecurityScreen.test.tsx</code></td>
+              <td><span class="badge badge-info">Component</span></td>
+            </tr>
+            <tr>
+              <td>Authoritative 401/403 from <code>/me</code> on reconnect still clears persisted session and Quick PIN immediately.</td>
+              <td><code>AuthProvider.carryover.test.tsx</code></td>
+              <td><span class="badge badge-info">Unit / Jest</span></td>
+            </tr>
+            <tr>
+              <td>Real Android Emulator E2E: force-stop app in Airplane Mode, relaunch, scan leaf &amp; view saved record on both Farmer and Inspector accounts.</td>
+              <td>Android emulator verification via <code>agent-device</code> + <code>npm run typecheck &amp;&amp; npm run lint &amp;&amp; npm test</code></td>
+              <td><span class="badge badge-success">Live E2E</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 9. Confirmed Decisions & Ready-to-Execute Checklist -->
+    <section class="section" id="decisions">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Section 9 · Confirmed Decisions</p>
+          <h2>Approved Plan — Standing By for Your Go-Ahead</h2>
+        </div>
+        <span class="badge badge-success">All 3 Decisions Locked · 0 Code Changes Yet</span>
+      </div>
+
+      <div class="callout callout-success">
+        <div class="callout-title">Locked Policy Summary</div>
+        <p>
+          <strong>1. Cold-Start Unlock Policy:</strong> <strong>Option C (Role-Aware)</strong> — Farmers stay signed in offline seamlessly (0 lock prompts, optional App Lock in Settings); Inspectors auto-persist with OS Biometric/PIN when available, or a 4-digit CaneGuard Quick PIN on no-lock phones (5-attempt lockout wipes cached token, keeping local SQLite drafts intact).<br>
+          <strong>2. Farmer 30-Day Offline Expiry:</strong> <strong>Personal-Scan Offline Grace Mode</strong> — Farmers retain offline access to their saved personal scans and on-device AI scanner past 30 days, with a quiet bilingual prompt to sign in again when online for account/server features.<br>
+          <strong>3. Execution Gate:</strong> Strictly waiting for your explicit word before modifying any tracked repository file.
+        </p>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Approved Deliverable</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>OFF-01</code></td>
+              <td>Auto-persist session in SecureStore on sign-in (decouple persistence from biometrics, migrate existing <code>biometric-enabled</code> installs seamlessly).</td>
+              <td><span class="badge badge-info">Queued · Waiting for Go-Ahead</span></td>
+            </tr>
+            <tr>
+              <td><code>OFF-02</code></td>
+              <td>Add 4-digit CaneGuard Quick PIN fallback (<code>appPinAuth.ts</code>, salted hash in SecureStore, 5-try lockout) for inspector phones without OS screen lock.</td>
+              <td><span class="badge badge-info">Queued · Waiting for Go-Ahead</span></td>
+            </tr>
+            <tr>
+              <td><code>OFF-03</code></td>
+              <td>Retire <code>ReadyForFieldSheet</code> post-login detour &amp; scary password-only warning box; replace jargon with plain EN/TL copy.</td>
+              <td><span class="badge badge-info">Queued · Waiting for Go-Ahead</span></td>
+            </tr>
+            <tr>
+              <td><code>OFF-04</code></td>
+              <td>Fix 0-visit false "Not ready" alarm in <code>deriveReadiness()</code>, add calm bilingual Farmer offline status, and enable Farmer Personal-Scan Offline Grace Mode past 30 days.</td>
+              <td><span class="badge badge-info">Queued · Waiting for Go-Ahead</span></td>
+            </tr>
+            <tr>
+              <td><code>OFF-05</code></td>
+              <td>Allow toggling/changing local App Lock in Account Security without forcing a full remote logout.</td>
+              <td><span class="badge badge-info">Queued · Waiting for Go-Ahead</span></td>
+            </tr>
+            <tr>
+              <td><code>OFF-06</code></td>
+              <td>Update <code>docs/security/mobile-security-fixes.md</code> (<code>#70</code>) and <code>PROJECT_CONTEXT.md</code> to document the new storage &amp; lock boundary.</td>
+              <td><span class="badge badge-info">Queued · Waiting for Go-Ahead</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      <span>Design system: Matched directly from <code>src/constants/theme.ts</code> (CaneGuard Mobile)</span>
+      <span>Repo branch: <code>t3/simplify-offline-access</code> · Read-only planning artifact</span>
+    </footer>
+  </main>
+
+  <script>
+    // Theme toggle (Light / Dark)
+    const root = document.documentElement;
+    const themeBtn = document.getElementById('theme-toggle');
+    const themeLabel = document.getElementById('theme-toggle-label');
+    function isDarkNow() {
+      const explicit = root.getAttribute('data-theme');
+      if (explicit) return explicit === 'dark';
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    function applyTheme(t) {
+      root.setAttribute('data-theme', t);
+      themeLabel.textContent = t === 'dark' ? 'Light mode' : 'Dark mode';
+    }
+    themeLabel.textContent = isDarkNow() ? 'Light mode' : 'Dark mode';
+    themeBtn.addEventListener('click', () => {
+      applyTheme(isDarkNow() ? 'light' : 'dark');
+    });
+
+    // Interactive Before/After Phone Mockup Studio
+    const state = { role: 'farmer-tl', device: 'none', screen: 'restart' };
+
+    function renderPhones() {
+      const beforeBody = document.getElementById('phone-before-body');
+      const afterBody = document.getElementById('phone-after-body');
+      const beforeNote = document.getElementById('before-note');
+      const afterNote = document.getElementById('after-note');
+      const isFarmer = state.role !== 'inspector';
+      const isTL = state.role === 'farmer-tl';
+
+      let beforeHTML = '';
+      let afterHTML = '';
+
+      if (state.screen === 'restart') {
+        beforeNote.textContent = state.device === 'none' || isFarmer
+          ? 'Killed in field → Locked out offline!'
+          : 'Works only if 5-step setup was done';
+        afterNote.textContent = isFarmer
+          ? 'Resumes straight to Home (0 prompts)'
+          : (state.device === 'none' ? '4-digit Quick PIN (works offline)' : 'Auto OS Lock → Home');
+
+        if (state.device === 'none' || isFarmer) {
+          beforeHTML = `
+            <div style="text-align:center; padding-top: 8px;">
+              <div style="font-weight:700; font-size:18px; color:var(--primary-dark);">Welcome back</div>
+              <div style="font-size:12.5px; color:var(--text-sec);">App restarted while offline</div>
+            </div>
+            <div class="cg-alert-danger">
+              <strong>Signed out automatically.</strong><br>
+              ${state.device === 'none'
+                ? 'This phone has no biometric/screen lock, so CaneGuard could not keep your session offline.'
+                : 'Password-only sign-in stays in memory only. Connect to the internet to sign in again.'}
+            </div>
+            <div class="cg-card" style="gap:6px;">
+              <div style="font-size:12px; color:var(--text-sec);">Email</div>
+              <div style="height:34px; border:1px solid var(--border); border-radius:8px; background:var(--bg);"></div>
+              <div style="font-size:12px; color:var(--text-sec);">Password</div>
+              <div style="height:34px; border:1px solid var(--border); border-radius:8px; background:var(--bg);"></div>
+              <div class="cg-btn cg-btn-disabled" style="margin-top:4px;">Login (No Internet)</div>
+            </div>
+          `;
+        } else {
+          beforeHTML = `
+            <div class="cg-card" style="margin-top:16px;">
+              <div style="font-weight:700; color:var(--primary-dark);">Did you complete Account Security setup?</div>
+              <div class="cg-alert-warn">
+                If you tapped <strong>"Not now"</strong> on the post-login sheet, you are now signed out until internet returns.
+              </div>
+              <div class="cg-btn cg-btn-sec">${state.device === 'bio' ? 'Unlock with biometrics' : 'Unlock with device credentials'}</div>
+            </div>
+          `;
+        }
+
+        if (isFarmer) {
+          afterHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong style="color:var(--primary-dark);">CaneGuard</strong>
+              <span class="badge badge-success">${isTL ? 'Handa offline' : 'Ready offline'}</span>
+            </div>
+            <div class="cg-serif-headline">
+              ${isTL ? 'Mag-scan ng dahon kahit walang signal.' : 'Scan a cane leaf even without signal.'}
+            </div>
+            <div class="cg-btn">${isTL ? 'Magsimula ng scan' : 'Start a scan'}</div>
+            <div class="cg-card">
+              <div style="font-weight:700; font-size:14px; color:var(--primary-dark);">${isTL ? 'Mga na-save kong scan' : 'My saved scans'}</div>
+              <div style="font-size:12.5px; color:var(--text-sec);">
+                ${isTL ? '3 scan na naka-save sa phone na ito · Mabubuksan agad kahit mag-restart ang app.' : '3 scans saved on this phone · Opens right away after any restart.'}
+              </div>
+            </div>
+          `;
+        } else if (state.device === 'none') {
+          afterHTML = `
+            <div style="text-align:center; padding-top:6px;">
+              <span class="badge badge-info">Option C · No Phone Screen Lock</span>
+              <div style="font-weight:700; font-size:17px; color:var(--primary-dark); margin-top:8px;">Enter CaneGuard PIN</div>
+              <div style="font-size:12px; color:var(--text-sec);">Works 100% offline · Protects office data</div>
+            </div>
+            <div class="pin-dots">
+              <span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot empty"></span><span class="pin-dot empty"></span>
+            </div>
+            <div class="pin-pad">
+              <div class="pin-key">1</div><div class="pin-key">2</div><div class="pin-key">3</div>
+              <div class="pin-key">4</div><div class="pin-key">5</div><div class="pin-key">6</div>
+              <div class="pin-key">7</div><div class="pin-key">8</div><div class="pin-key">9</div>
+              <div class="pin-key" style="font-size:11px;">Clear</div><div class="pin-key">0</div><div class="pin-key">⌫</div>
+            </div>
+            <div style="text-align:center; font-size:12px; color:var(--primary); font-weight:600;">Use password instead</div>
+          `;
+        } else {
+          afterHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong style="color:var(--primary-dark);">CaneGuard</strong>
+              <span class="badge badge-success">Ready offline · 68h left</span>
+            </div>
+            <div class="cg-alert-ok">
+              Unlocked with ${state.device === 'bio' ? 'fingerprint' : 'phone PIN'} — configured automatically when you signed in.
+            </div>
+            <div class="cg-serif-headline">Ready for field observations.</div>
+            <div class="cg-btn">Start a scan</div>
+            <div class="cg-card">
+              <div style="font-weight:700; font-size:13.5px; color:var(--primary-dark);">Field Reports &amp; Visits</div>
+              <div style="font-size:12.5px; color:var(--text-sec);">Saved drafts &amp; outbox intact. Auto-syncs when signal returns.</div>
+            </div>
+          `;
+        }
+      } else if (state.screen === 'home') {
+        beforeNote.textContent = isFarmer ? 'No offline guidance shown' : 'Amber warning if 0 visits or unlock off';
+        afterNote.textContent = 'Calm, honest status for both roles';
+
+        if (isFarmer) {
+          beforeHTML = `
+            <strong style="color:var(--primary-dark);">CaneGuard</strong>
+            <div class="cg-serif-headline">${isTL ? 'Handa ka na bang mag-scan?' : 'Ready to check a leaf?'}</div>
+            <div style="font-size:12px; color:var(--text-sec); font-style:italic;">(No indicator that restarting offline will sign the farmer out)</div>
+            <div class="cg-btn">${isTL ? 'Magsimula ng scan' : 'Start a scan'}</div>
+            <div class="cg-card">
+              <div style="font-weight:700; font-size:13.5px;">${isTL ? 'Mga scan ko' : 'My scans'}</div>
+              <div style="font-size:12.5px; color:var(--text-sec);">Hidden risk: closing the app in the field signs you out.</div>
+            </div>
+          `;
+          afterHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong style="color:var(--primary-dark);">CaneGuard</strong>
+              <span class="badge badge-success">${isTL ? 'Gumagana offline' : 'Works offline'}</span>
+            </div>
+            <div class="cg-serif-headline">${isTL ? 'Handa ka na bang mag-scan?' : 'Ready to check a leaf?'}</div>
+            <div class="cg-btn">${isTL ? 'Magsimula ng scan' : 'Start a scan'}</div>
+            <div class="cg-card">
+              <div style="font-weight:700; font-size:13.5px; color:var(--primary-dark);">${isTL ? 'Mga scan ko' : 'My scans'}</div>
+              <div style="font-size:12.5px; color:var(--text-sec);">${isTL ? 'Naka-save sa phone na ito at mananatiling naka-sign in kahit walang signal.' : 'Saved on this phone and stays signed in without signal.'}</div>
+            </div>
+          `;
+        } else {
+          beforeHTML = `
+            <strong style="color:var(--primary-dark);">CaneGuard</strong>
+            <div class="cg-serif-headline">All clear.</div>
+            <div class="cg-alert-warn">
+              <strong>Not ready for offline work.</strong><br>
+              ${state.device === 'none'
+                ? 'Turn on biometric unlock in Account security. (Impossible on this phone!)'
+                : 'Download your visits while you are online. (False alarm when 0 visits assigned!)'}
+            </div>
+            <div class="cg-btn">Start a scan</div>
+          `;
+          afterHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong style="color:var(--primary-dark);">CaneGuard</strong>
+              <span class="badge badge-success">Ready offline</span>
+            </div>
+            <div class="cg-serif-headline">All clear.</div>
+            <div style="font-size:12.5px; color:var(--text-sec);">
+              0 assigned visits · Ad-hoc scans &amp; field reports ready offline (72h window active).
+            </div>
+            <div class="cg-btn">Start a scan</div>
+          `;
+        }
+      } else if (state.screen === 'security') {
+        beforeNote.textContent = state.device === 'none' ? 'Button disabled — dead end' : 'Scary copy + forced logout on disable';
+        afterNote.textContent = 'Plain language · Works on every phone';
+
+        beforeHTML = `
+          <div style="font-weight:700; font-size:17px; color:var(--primary-dark);">${isTL ? 'Seguridad ng account' : 'Account & security'}</div>
+          <div class="cg-card">
+            <div style="font-weight:700; font-size:14px; color:var(--primary-dark);">
+              ${state.device === 'pin' ? 'Device unlock' : 'Biometric unlock'}
+            </div>
+            <div style="font-size:12.5px; color:var(--text-sec);">
+              ${state.device === 'none'
+                ? 'This device does not expose a strong platform biometric. Use password sign-in.'
+                : state.device === 'pin'
+                  ? 'No strong biometric found. Your device PIN, pattern or password can unlock CaneGuard offline, with weaker protection.'
+                  : 'A strong platform biometric is available for this installation.'}
+            </div>
+            <div class="cg-btn ${state.device === 'none' ? 'cg-btn-disabled' : ''}">
+              ${state.device === 'pin' ? 'Enable device unlock' : 'Enable biometric unlock'}
+            </div>
+          </div>
+          <div style="font-size:12px; color:var(--danger);">
+            Turning this off later requires your password and logs you out completely.
+          </div>
+        `;
+        afterHTML = `
+          <div style="font-weight:700; font-size:17px; color:var(--primary-dark);">${isTL ? 'Seguridad ng account' : 'Account & security'}</div>
+          <div class="cg-alert-ok">
+            <strong>${isTL ? 'Paggamit offline: Naka-on' : 'Offline access: On'}</strong><br>
+            ${isTL ? 'Mananatiling naka-sign in ang account mo kahit walang signal.' : 'Your account stays signed in on this phone without signal.'}
+          </div>
+          <div class="cg-card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong style="font-size:14px; color:var(--primary-dark);">${isTL ? 'Lock ng app' : 'App lock'}</strong>
+              <span class="badge badge-info">
+                ${isFarmer ? (isTL ? 'Opsyonal' : 'Optional') : (state.device === 'none' ? '4-Digit PIN' : state.device === 'pin' ? 'Phone PIN' : 'Fingerprint')}
+              </span>
+            </div>
+            <div style="font-size:12.5px; color:var(--text-sec);">
+              ${state.device === 'none'
+                ? (isTL ? 'Gumamit ng 4-digit PIN ng CaneGuard kung ibinabahagi ang phone.' : 'Use a 4-digit CaneGuard PIN to protect this phone without a system lock.')
+                : (isTL ? 'Gumamit ng fingerprint o PIN ng phone kung ibinabahagi ito.' : 'Uses your phone’s fingerprint or PIN. Change anytime without logging out.')}
+            </div>
+            <div class="cg-btn cg-btn-sec">${isTL ? 'Pamahalaan ang lock ng app' : 'Manage app lock'}</div>
+          </div>
+        `;
+      } else {
+        // login screen
+        beforeNote.textContent = 'Scary amber restart warning box';
+        afterNote.textContent = 'Clean, reassuring offline promise';
+
+        beforeHTML = `
+          <div style="font-weight:700; font-size:18px; color:var(--primary-dark);">Welcome back</div>
+          <div class="cg-card" style="gap:8px;">
+            <div style="height:32px; border:1px solid var(--border); border-radius:8px; padding:6px 10px; font-size:12px; color:var(--text-sec);">Email</div>
+            <div style="height:32px; border:1px solid var(--border); border-radius:8px; padding:6px 10px; font-size:12px; color:var(--text-sec);">Password</div>
+            <div class="cg-btn">Login</div>
+            <div class="cg-alert-warn">
+              Password-only sign-in: if CaneGuard closes while you are offline, you must sign in again when a connection returns. Turn on biometric unlock in Account security before visits…
+            </div>
+          </div>
+        `;
+        afterHTML = `
+          <div style="font-weight:700; font-size:18px; color:var(--primary-dark);">Welcome back</div>
+          <div class="cg-card" style="gap:8px;">
+            <div style="height:32px; border:1px solid var(--border); border-radius:8px; padding:6px 10px; font-size:12px; color:var(--text-sec);">Email</div>
+            <div style="height:32px; border:1px solid var(--border); border-radius:8px; padding:6px 10px; font-size:12px; color:var(--text-sec);">Password</div>
+            <div class="cg-btn">Login</div>
+            <div class="cg-alert-ok">
+              <strong>Works offline after sign-in.</strong> Sign in once while online — no biometrics needed to keep working in the field.
+            </div>
+          </div>
+        `;
+      }
+
+      beforeBody.innerHTML = beforeHTML;
+      afterBody.innerHTML = afterHTML;
+    }
+
+    document.querySelectorAll('.seg-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (btn.dataset.role) {
+          state.role = btn.dataset.role;
+          document.querySelectorAll('.seg-btn[data-role]').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+        } else if (btn.dataset.device) {
+          state.device = btn.dataset.device;
+          document.querySelectorAll('.seg-btn[data-device]').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+        } else if (btn.dataset.screen) {
+          state.screen = btn.dataset.screen;
+          document.querySelectorAll('.seg-btn[data-screen]').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+        }
+        renderPhones();
+      });
+    });
+    renderPhones();
+  </script>
+</body>
+</html>

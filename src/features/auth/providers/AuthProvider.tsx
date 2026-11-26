@@ -23,6 +23,12 @@ import {
   verifyMobileSession,
 } from '@/features/auth/api/mobileAuthApi';
 import {
+  clearAppPin,
+  hasAppPinConfigured,
+  saveAppPin,
+  verifyAppPin,
+} from '@/features/auth/services/appPinAuth';
+import {
   authenticateWithDeviceCredential,
   ensureBiometricReady,
   getBiometricCapability,
@@ -35,12 +41,17 @@ import {
   clearLegacyMobileSession,
   clearMobileSession,
   disableBiometricUnlock,
+  getLocalLockMode,
   hasCompletedMobileLogin,
+  hasPersistedMobileSession,
   isBiometricUnlockEnabled,
   markMobileLoginCompleted,
+  readPersistedMobileSession,
   readProtectedMobileSession,
+  savePersistedMobileSession,
   saveProtectedMobileSession,
   StoredSessionExpiredError,
+  type PersistedSessionResult,
 } from '@/features/auth/services/tokenStore';
 import {
   assessGrant,
@@ -60,6 +71,7 @@ import type {
   BiometricAuthResult,
   BiometricCapability,
   EmailChangeInput,
+  LocalLockMode,
   MobileSession,
   MobileUser,
   PasswordChangeInput,
@@ -69,22 +81,31 @@ import type {
 const MAX_SESSION_TIMER_DELAY_MS = 2_147_000_000;
 
 interface AuthContextValue {
+  appPinConfigured: boolean;
   biometricCapability: BiometricCapability | null;
   biometricEnabled: boolean;
   biometricLoading: boolean;
   changeEmail: (input: EmailChangeInput) => Promise<boolean>;
   changePassword: (input: PasswordChangeInput) => Promise<boolean>;
   clearSessionAfterRemoteRevocation: () => Promise<boolean>;
+  dismissInitialPinSetup: () => void;
   /**
    * The authoring bound, checked at the moment a record is finished: the
    * provenance to freeze onto it, or null when the session may not author now.
    */
   getAuthoringProvenance: () => AuthoringProvenance | null;
   disableBiometric: (currentPassword: string) => Promise<boolean>;
+  /** Turns off local App Lock (device or Quick PIN) without logging out. */
+  disableLocalLock: () => Promise<boolean>;
   enableBiometricUnlock: () => Promise<boolean>;
   enrollMobileDevice: (currentPassword: string, deviceName: string) => Promise<boolean>;
   errorMessage: string | null;
+  /** True when a farmer resumed past 30-day token expiry in personal-scan grace mode. */
+  farmerOfflineGrace: boolean;
   hasCompletedLogin: boolean;
+  /** True when the active session is persisted in SecureStore for offline restarts. */
+  hasPersistedSession: boolean;
+  localLockMode: LocalLockMode;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<{
     localClearFailed: boolean;
@@ -93,10 +114,17 @@ interface AuthContextValue {
   isSessionCurrent: (token: string, ownerIdentity: string) => boolean;
   markSessionExpired: (expectedToken?: string) => Promise<void>;
   /**
+   * True right after an inspector signs in on a phone with no OS screen lock
+   * and no CaneGuard Quick PIN set yet (Option C one-step Quick PIN prompt).
+   */
+  needsInitialPinSetup: boolean;
+  /**
    * An upload came back CAPABILITY_REVOKED: carried capabilities drop at once,
    * the session and the unsent records stay, and /me is asked again.
    */
   reportCapabilityRevoked: () => Promise<void>;
+  /** True on cold start when a persisted session is gated by CaneGuard Quick PIN. */
+  requiresAppPinUnlock: boolean;
   /** Re-attempts a pending /me verification; resolves with the verification status afterwards. */
   retrySessionVerification: (
     options?: { reason?: 'stale' | 'revoked' },
@@ -105,7 +133,9 @@ interface AuthContextValue {
   /** NET-3: the one session union; read this, not status plus sessionVerification. */
   sessionState: SessionState;
   sessionVerification: SessionVerificationStatus;
+  setupAppPin: (pin: string) => Promise<boolean>;
   status: AuthStatus;
+  unlockWithAppPin: (pin: string) => Promise<boolean>;
   unlockWithBiometrics: () => Promise<boolean>;
   user: MobileUser | null;
 }
@@ -121,6 +151,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [biometricCapability, setBiometricCapability] =
     useState<BiometricCapability | null>(null);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [localLockMode, setLocalLockMode] = useState<LocalLockMode>('none');
+  const [appPinConfigured, setAppPinConfigured] = useState(false);
+  const [hasPersistedSession, setHasPersistedSession] = useState(false);
+  const [requiresAppPinUnlock, setRequiresAppPinUnlock] = useState(false);
+  const [needsInitialPinSetup, setNeedsInitialPinSetup] = useState(false);
+  const [farmerOfflineGrace, setFarmerOfflineGrace] = useState(false);
   const [hasCompletedLogin, setHasCompletedLogin] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [revocation, setRevocation] = useState<RevocationReason | null>(null);
@@ -133,6 +169,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const revocationRef = useRef<RevocationReason | null>(null);
   const liveVerifiedAtRef = useRef<string | null>(null);
   const sessionVerificationRef = useRef<SessionVerificationStatus>('idle');
+  const localLockModeRef = useRef<LocalLockMode>('none');
+  const hasPersistedSessionRef = useRef(false);
+  const farmerOfflineGraceRef = useRef(false);
+  const biometricCapabilityRef = useRef<BiometricCapability | null>(null);
   const verificationRetryRef = useRef<Promise<SessionVerificationStatus> | null>(null);
   const lastVerificationRetryAt = useRef(0);
 
@@ -148,6 +188,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     liveVerifiedAtRef.current = liveVerifiedAt;
   }, [liveVerifiedAt]);
+  useEffect(() => {
+    localLockModeRef.current = localLockMode;
+  }, [localLockMode]);
+  useEffect(() => {
+    hasPersistedSessionRef.current = hasPersistedSession;
+  }, [hasPersistedSession]);
+  useEffect(() => {
+    farmerOfflineGraceRef.current = farmerOfflineGrace;
+  }, [farmerOfflineGrace]);
+  useEffect(() => {
+    biometricCapabilityRef.current = biometricCapability;
+  }, [biometricCapability]);
+
   const biometricPromptRef = useRef<Promise<BiometricAuthResult> | null>(null);
   const biometricEnableRef = useRef<Promise<boolean> | null>(null);
   const biometricUnlockRef = useRef<Promise<boolean> | null>(null);
@@ -166,6 +219,91 @@ export function AuthProvider({ children }: PropsWithChildren) {
       liveVerifiedAtRef.current = null;
       setLiveVerifiedAt(null);
     }
+  }, []);
+
+  /**
+   * Persist session through the decoupled store, falling back to legacy mock
+   * exports when older unit tests mock only `saveProtectedMobileSession`.
+   */
+  const persistSession = useCallback(
+    async (nextSession: MobileSession, mode: LocalLockMode): Promise<void> => {
+      if (typeof savePersistedMobileSession === 'function') {
+        await savePersistedMobileSession(nextSession, mode);
+        return;
+      }
+      if (typeof saveProtectedMobileSession === 'function') {
+        await saveProtectedMobileSession(nextSession);
+      }
+    },
+    [],
+  );
+
+  /**
+   * Silently refreshes the persisted session (e.g. with a newer 72h grant from
+   * /me) only when writing will never trigger an unexpected OS biometric prompt.
+   */
+  const refreshPersistedSessionSilently = useCallback(
+    async (verifiedSession: MobileSession): Promise<void> => {
+      if (!hasPersistedSessionRef.current) return;
+      const mode = localLockModeRef.current;
+      const cap = biometricCapabilityRef.current;
+      if (mode === 'device' && cap && !cap.deviceCredentialAvailable) {
+        return;
+      }
+      try {
+        await persistSession(verifiedSession, mode);
+      } catch {
+        // Best-effort refresh: the live verified session remains active in memory.
+      }
+    },
+    [persistSession],
+  );
+
+  const readPersisted = useCallback(
+    async (
+      options: { skipDevicePrompt?: boolean } = {},
+    ): Promise<PersistedSessionResult | null> => {
+      if (typeof readPersistedMobileSession === 'function') {
+        return readPersistedMobileSession(options);
+      }
+      if (typeof readProtectedMobileSession === 'function') {
+        const legacy = await readProtectedMobileSession();
+        return legacy ? { farmerOfflineGrace: false, session: legacy } : null;
+      }
+      return null;
+    },
+    [],
+  );
+
+  const readStartupPersistence = useCallback(async (): Promise<{
+    persisted: boolean;
+    lockMode: LocalLockMode;
+  }> => {
+    if (
+      typeof hasPersistedMobileSession === 'function' &&
+      typeof getLocalLockMode === 'function'
+    ) {
+      const [persisted, lockMode] = await Promise.all([
+        hasPersistedMobileSession(),
+        getLocalLockMode(),
+      ]);
+      return { persisted, lockMode };
+    }
+    if (typeof isBiometricUnlockEnabled === 'function') {
+      const enabled = await isBiometricUnlockEnabled();
+      return { persisted: enabled, lockMode: enabled ? 'device' : 'none' };
+    }
+    return { persisted: false, lockMode: 'none' };
+  }, []);
+
+  const readLockMode = useCallback(async (): Promise<LocalLockMode> => {
+    if (typeof getLocalLockMode === 'function') {
+      return getLocalLockMode();
+    }
+    if (typeof isBiometricUnlockEnabled === 'function') {
+      return (await isBiometricUnlockEnabled()) ? 'device' : 'none';
+    }
+    return 'none';
   }, []);
 
   /**
@@ -246,6 +384,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setStatus('unauthenticated');
       setSessionVerification('idle');
       setBiometricEnabled(false);
+      setLocalLockMode('none');
+      setAppPinConfigured(false);
+      setHasPersistedSession(false);
+      setRequiresAppPinUnlock(false);
+      setNeedsInitialPinSetup(false);
+      setFarmerOfflineGrace(false);
       setErrorMessage(
         localClearFailed
           ? 'CaneGuard could not clear secure session storage. Restart the app before signing in again.'
@@ -262,13 +406,32 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const markSessionExpired = useCallback(async (expectedToken?: string) => {
-    const token = sessionRef.current?.token;
+    const active = sessionRef.current;
+    const token = active?.token;
     if (expectedToken !== undefined && token !== expectedToken) return;
+    // Farmers keep offline personal-scan grace access when their 30-day token
+    // expires so local scans and on-device AI checks are never cut off offline.
+    if (active?.user.role === 'farmer') {
+      const { capabilityGrant: _dropped, ...rest } = active;
+      void _dropped;
+      setFarmerOfflineGrace(true);
+      setCurrentSession({
+        ...rest,
+        token: '',
+        user: { ...active.user, capabilities: [] },
+      });
+      setSessionVerification('unavailable');
+      setErrorMessage(null);
+      if (token) {
+        void logoutMobile(token).catch(() => undefined);
+      }
+      return;
+    }
     await clearLocalSession('Your session expired. Sign in to resume pending uploads.');
     if (token) {
       void logoutMobile(token).catch(() => undefined);
     }
-  }, [clearLocalSession]);
+  }, [clearLocalSession, setCurrentSession]);
 
   /**
    * Only /me grants capabilities. A token response cannot, so an unverified
@@ -295,6 +458,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [recordVerified],
   );
 
+  const hydrateFarmerGraceSession = useCallback(
+    (stored: MobileSession) => {
+      setHasCompletedLogin(true);
+      setHasPersistedSession(true);
+      setFarmerOfflineGrace(true);
+      setRequiresAppPinUnlock(false);
+      if (typeof markMobileLoginCompleted === 'function') {
+        void markMobileLoginCompleted();
+      }
+      setCurrentSession(unverifiedSession({ ...stored, token: '' }));
+      setStatus('authenticated');
+      setSessionVerification('unavailable');
+      setErrorMessage(null);
+    },
+    [setCurrentSession],
+  );
+
   const verifyAndHydrateSession = useCallback(
     async (
       stored: MobileSession,
@@ -307,6 +487,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       // Hydrate before network verification so safe, unexpired local work can
       // remain available during an outage.
       setHasCompletedLogin(true);
+      setHasPersistedSession(true);
+      setFarmerOfflineGrace(false);
+      setRequiresAppPinUnlock(false);
       if (typeof markMobileLoginCompleted === 'function') {
         void markMobileLoginCompleted();
       }
@@ -327,6 +510,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setStatus('authenticated');
         setSessionVerification('verified');
         setErrorMessage(null);
+        void refreshPersistedSessionSilently(verified);
         return true;
       } catch (error: unknown) {
         if (!isCurrent()) {
@@ -339,6 +523,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
             setStatus('unauthenticated');
             setSessionVerification('idle');
             setBiometricEnabled(false);
+            setLocalLockMode('none');
+            setAppPinConfigured(false);
+            setHasPersistedSession(false);
+            setRequiresAppPinUnlock(false);
+            setFarmerOfflineGrace(false);
             setErrorMessage(null);
             revocationRef.current = 'session-rejected';
             setRevocation('session-rejected');
@@ -359,7 +548,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return true;
       }
     },
-    [recordVerified, setCurrentSession],
+    [recordVerified, refreshPersistedSessionSilently, setCurrentSession],
   );
 
   /**
@@ -372,13 +561,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
     options: { reason?: 'stale' | 'revoked' } = {},
   ): Promise<SessionVerificationStatus> => {
     const activeSession = sessionRef.current;
+    // Farmers in offline personal-scan grace mode have no active server token.
+    if (farmerOfflineGraceRef.current || !activeSession?.token) {
+      return sessionVerificationRef.current;
+    }
     // A warm verified session is re-verified only when it has gone stale or an
     // upload said access was revoked; otherwise only `unavailable` retries.
     const allowVerified = options.reason !== undefined;
     if (
-      !activeSession ||
-      (sessionVerificationRef.current !== 'unavailable' &&
-        !(allowVerified && sessionVerificationRef.current === 'verified'))
+      sessionVerificationRef.current !== 'unavailable' &&
+      !(allowVerified && sessionVerificationRef.current === 'verified')
     ) {
       return sessionVerificationRef.current;
     }
@@ -397,8 +589,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
       sessionRef.current?.token === activeSession.token &&
       sessionRef.current?.user.uuid === activeSession.user.uuid;
 
-    // `holder` lets the operation's own `finally` compare identities without
-    // reading the `operation` binding during its own initializer.
     const holder: { current: Promise<SessionVerificationStatus> | null } = { current: null };
     const operation = (async (): Promise<SessionVerificationStatus> => {
       try {
@@ -407,10 +597,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (!isCurrent()) {
           return sessionVerificationRef.current;
         }
-        setCurrentSession(recordVerified(activeSession, user, serverNowMs));
+        const verified = recordVerified(activeSession, user, serverNowMs);
+        setCurrentSession(verified);
         sessionVerificationRef.current = 'verified';
         setSessionVerification('verified');
         setErrorMessage(null);
+        void refreshPersistedSessionSilently(verified);
         return 'verified';
       } catch (error: unknown) {
         if (!isCurrent()) {
@@ -424,15 +616,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
             setStatus('unauthenticated');
             setSessionVerification('idle');
             setBiometricEnabled(false);
+            setLocalLockMode('none');
+            setAppPinConfigured(false);
+            setHasPersistedSession(false);
+            setRequiresAppPinUnlock(false);
+            setFarmerOfflineGrace(false);
             setErrorMessage('Your session expired. Sign in to resume pending uploads.');
             revocationRef.current = 'session-rejected';
             setRevocation('session-rejected');
           }
           return 'idle';
         }
-        // Still offline or the office is still unavailable: keep the honest
-        // "working offline" state without prompting for biometrics. A revoked
-        // session keeps its empty list: its grant was dropped when it was reported.
         setCurrentSession(carriedOverSession(sessionRef.current ?? activeSession, Date.now()));
         sessionVerificationRef.current = 'unavailable';
         setSessionVerification('unavailable');
@@ -447,14 +641,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
     holder.current = operation;
     verificationRetryRef.current = operation;
     return operation;
-  }, [recordVerified, setCurrentSession]);
+  }, [recordVerified, refreshPersistedSessionSilently, setCurrentSession]);
 
   useEffect(() => {
     if (status !== 'authenticated') {
       return undefined;
     }
-    // Check account is one step of the coordinator's reconnect order; the
-    // coordinator owns the network and foreground listeners.
     const release = net.acquire();
     const unregister = net.registerCheckAccount(() =>
       checkAccountStep(sessionVerificationRef.current, retrySessionVerification),
@@ -472,20 +664,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
       active && generation === verificationGeneration.current;
 
     void (async () => {
-      const [configured, loginHistory] = await Promise.all([
-        typeof isBiometricUnlockEnabled === 'function'
-          ? isBiometricUnlockEnabled()
-          : false,
+      const [{ persisted, lockMode }, loginHistory, pinConfigured] = await Promise.all([
+        readStartupPersistence(),
         typeof hasCompletedMobileLogin === 'function'
           ? hasCompletedMobileLogin()
+          : false,
+        typeof hasAppPinConfigured === 'function'
+          ? hasAppPinConfigured().catch(() => false)
           : false,
       ]);
       if (!isCurrent()) {
         return;
       }
-      // Sessions saved by auth-v1 without biometric protection must not survive
-      // a process restart. They are removed during cold-start cleanup, but are
-      // never read or used to authenticate the app.
       const hadLegacySession =
         typeof clearLegacyMobileSession === 'function'
           ? await clearLegacyMobileSession().catch(() => false)
@@ -493,43 +683,89 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (!isCurrent()) {
         return;
       }
-      setBiometricEnabled(configured);
-      setHasCompletedLogin(configured || loginHistory || hadLegacySession);
 
-      if (!configured) {
+      const effectiveLockMode: LocalLockMode = persisted ? lockMode : 'none';
+      setHasPersistedSession(persisted);
+      setLocalLockMode(effectiveLockMode);
+      setBiometricEnabled(effectiveLockMode === 'device');
+      setAppPinConfigured(pinConfigured);
+      setHasCompletedLogin(persisted || loginHistory || hadLegacySession);
+
+      if (!persisted) {
         setStatus('unauthenticated');
         setSessionVerification('idle');
         return;
       }
 
-      const unlock = await readyBiometricOnce();
-      if (!isCurrent()) {
-        return;
-      }
-      if (!unlock.success) {
-        if (shouldDisableBiometricUnlock(unlock)) {
-          if (typeof disableBiometricUnlock === 'function') {
-            await disableBiometricUnlock().catch(() => undefined);
-          }
-          setBiometricEnabled(false);
+      // Quick PIN gate: wait for user to enter their 4-digit PIN on LoginScreen.
+      if (effectiveLockMode === 'app-pin') {
+        if (!pinConfigured) {
+          setLocalLockMode('none');
+          setHasPersistedSession(false);
+          setStatus('unauthenticated');
+          setSessionVerification('idle');
+          return;
         }
+        setRequiresAppPinUnlock(true);
         setStatus('unauthenticated');
         setSessionVerification('idle');
-        setErrorMessage(unlock.message);
         return;
       }
 
-      const stored = await readProtectedMobileSession();
+      // OS biometric or device PIN gate.
+      if (effectiveLockMode === 'device') {
+        const unlock = await readyBiometricOnce();
+        if (!isCurrent()) {
+          return;
+        }
+        if (!unlock.success) {
+          if (shouldDisableBiometricUnlock(unlock)) {
+            if (typeof disableBiometricUnlock === 'function') {
+              await disableBiometricUnlock().catch(() => undefined);
+            }
+            setBiometricEnabled(false);
+            setLocalLockMode('none');
+            setHasPersistedSession(false);
+          }
+          setStatus('unauthenticated');
+          setSessionVerification('idle');
+          setErrorMessage(unlock.message);
+          return;
+        }
+
+        const storedResult = await readPersisted();
+        if (!isCurrent()) {
+          return;
+        }
+        if (!storedResult) {
+          setStatus('unauthenticated');
+          setSessionVerification('idle');
+          return;
+        }
+        if (storedResult.farmerOfflineGrace) {
+          hydrateFarmerGraceSession(storedResult.session);
+          return;
+        }
+        await verifyAndHydrateSession(storedResult.session, isCurrent);
+        return;
+      }
+
+      // Seamless persistence (`lockMode === 'none'`): resume directly offline.
+      const storedResult = await readPersisted({ skipDevicePrompt: true });
       if (!isCurrent()) {
         return;
       }
-      if (!stored) {
+      if (!storedResult) {
+        setHasPersistedSession(false);
         setStatus('unauthenticated');
         setSessionVerification('idle');
         return;
       }
-
-      await verifyAndHydrateSession(stored, isCurrent);
+      if (storedResult.farmerOfflineGrace) {
+        hydrateFarmerGraceSession(storedResult.session);
+        return;
+      }
+      await verifyAndHydrateSession(storedResult.session, isCurrent);
     })().catch(async (error: unknown) => {
       if (!isCurrent()) {
         return;
@@ -537,6 +773,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (isStoredSessionExpiredError(error)) {
         await clearMobileSession().catch(() => undefined);
         setBiometricEnabled(false);
+        setLocalLockMode('none');
+        setAppPinConfigured(false);
+        setHasPersistedSession(false);
+        setRequiresAppPinUnlock(false);
+        setFarmerOfflineGrace(false);
         setCurrentSession(null);
         setStatus('unauthenticated');
         setSessionVerification('idle');
@@ -549,6 +790,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (isBiometricSessionError(error)) {
         if (error.code === 'ENROLLMENT_CHANGED') {
           setBiometricEnabled(false);
+          setLocalLockMode('none');
+          setHasPersistedSession(false);
         }
         setCurrentSession(null);
         setStatus('unauthenticated');
@@ -565,7 +808,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => {
       active = false;
     };
-  }, [readyBiometricOnce, setCurrentSession, verifyAndHydrateSession]);
+  }, [
+    hydrateFarmerGraceSession,
+    readPersisted,
+    readStartupPersistence,
+    readyBiometricOnce,
+    setCurrentSession,
+    verifyAndHydrateSession,
+  ]);
 
   useEffect(() => {
     let active = true;
@@ -581,7 +831,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     const expiresAt = session?.expiresAt;
-    if (expiresAt === undefined || expiresAt === null) {
+    if (expiresAt === undefined || expiresAt === null || farmerOfflineGrace) {
       return;
     }
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -605,7 +855,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         clearTimeout(timer);
       }
     };
-  }, [markSessionExpired, session?.expiresAt]);
+  }, [farmerOfflineGrace, markSessionExpired, session?.expiresAt]);
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -628,31 +878,74 @@ export function AuthProvider({ children }: PropsWithChildren) {
         });
         const acceptance = await acceptTokenSession(issuedSession);
         const nextSession = acceptance.session;
-        if (biometricEnabled) {
-          // A password fallback refreshes the protected credential without
-          // disabling the user's biometric preference for the next cold open.
-          // A failed refresh clears the retained credential and preference
-          // fail-closed; the password session stays active in memory.
-          try {
-            await saveProtectedMobileSession(nextSession);
-          } catch {
-            const stillConfigured =
-              typeof isBiometricUnlockEnabled === 'function'
-                ? await isBiometricUnlockEnabled().catch(() => false)
-                : false;
-            if (!stillConfigured) {
-              setBiometricEnabled(false);
-            }
-          }
-        } else if (typeof clearLegacyMobileSession === 'function') {
-          // Password sessions intentionally remain in memory only. A process
-          // restart must return to the login form instead of auto-resuming.
-          await clearLegacyMobileSession().catch(() => undefined);
+
+        // Option C (Role-Aware auto-persistence):
+        // - Always persist in SecureStore on sign-in so offline restarts work
+        //   with zero setup steps and no biometric requirement.
+        // - Farmers default to seamless resume ('none') unless they already
+        //   chose an App Lock.
+        // - Inspectors auto-enable OS device lock ('device') when the phone
+        //   has a screen lock/biometric; on no-lock phones without a Quick PIN,
+        //   persist immediately and trigger the one-step 4-digit Quick PIN prompt.
+        const capability =
+          (await getBiometricCapability().catch(() => biometricCapabilityRef.current)) ??
+          biometricCapabilityRef.current;
+        if (capability) {
+          setBiometricCapability(capability);
         }
+        const pinReady =
+          typeof hasAppPinConfigured === 'function'
+            ? await hasAppPinConfigured().catch(() => false)
+            : false;
+
+        let nextLockMode: LocalLockMode;
+        let promptForPin = false;
+        if (nextSession.user.role === 'farmer') {
+          if (localLockModeRef.current === 'app-pin' && pinReady) {
+            nextLockMode = 'app-pin';
+          } else if (
+            localLockModeRef.current === 'device' &&
+            capability?.status === 'available'
+          ) {
+            nextLockMode = 'device';
+          } else {
+            nextLockMode = 'none';
+          }
+        } else {
+          // field_reporter
+          if (localLockModeRef.current === 'app-pin' && pinReady) {
+            nextLockMode = 'app-pin';
+          } else if (capability?.status === 'available') {
+            nextLockMode = 'device';
+          } else if (pinReady) {
+            nextLockMode = 'app-pin';
+          } else {
+            nextLockMode = 'none';
+            promptForPin = true;
+          }
+        }
+
+        let persistedOk = false;
+        try {
+          await persistSession(nextSession, nextLockMode);
+          persistedOk = true;
+        } catch {
+          // Fail-closed on storage failure: live in-memory session stays active.
+          nextLockMode = 'none';
+          promptForPin = false;
+        }
+
         if (typeof markMobileLoginCompleted === 'function') {
           await markMobileLoginCompleted().catch(() => undefined);
         }
         setHasCompletedLogin(true);
+        setHasPersistedSession(persistedOk);
+        setLocalLockMode(nextLockMode);
+        setBiometricEnabled(nextLockMode === 'device');
+        setAppPinConfigured(pinReady);
+        setRequiresAppPinUnlock(false);
+        setNeedsInitialPinSetup(promptForPin);
+        setFarmerOfflineGrace(false);
         setCurrentSession(nextSession);
         setStatus('authenticated');
         setSessionVerification(acceptance.verified ? 'verified' : 'unavailable');
@@ -674,7 +967,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return false;
       }
     },
-    [acceptTokenSession, biometricEnabled, setCurrentSession],
+    [acceptTokenSession, persistSession, setCurrentSession],
   );
 
   const unlockWithBiometrics = useCallback((): Promise<boolean> => {
@@ -689,10 +982,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setBiometricLoading(true);
       setErrorMessage(null);
       try {
-        if (
-          typeof isBiometricUnlockEnabled !== 'function' ||
-          !(await isBiometricUnlockEnabled())
-        ) {
+        const mode = await readLockMode();
+        if (mode !== 'device') {
           setErrorMessage('Protected unlock is not set up. Sign in with your password.');
           return false;
         }
@@ -703,25 +994,38 @@ export function AuthProvider({ children }: PropsWithChildren) {
               await disableBiometricUnlock().catch(() => undefined);
             }
             setBiometricEnabled(false);
+            setLocalLockMode('none');
+            setHasPersistedSession(false);
           }
           setErrorMessage(unlock.message);
           return false;
         }
-        const stored = await readProtectedMobileSession();
-        if (!stored) {
+        const storedResult = await readPersisted();
+        if (!storedResult) {
           setBiometricEnabled(false);
+          setLocalLockMode('none');
+          setHasPersistedSession(false);
           setErrorMessage('Device unlock is unavailable. Sign in with your password.');
           return false;
         }
         setBiometricEnabled(true);
+        setLocalLockMode('device');
+        setHasPersistedSession(true);
+        if (storedResult.farmerOfflineGrace) {
+          hydrateFarmerGraceSession(storedResult.session);
+          return true;
+        }
         return await verifyAndHydrateSession(
-          stored,
+          storedResult.session,
           () => generation === verificationGeneration.current,
         );
       } catch (error: unknown) {
         if (isStoredSessionExpiredError(error)) {
           await clearMobileSession().catch(() => undefined);
           setBiometricEnabled(false);
+          setLocalLockMode('none');
+          setAppPinConfigured(false);
+          setHasPersistedSession(false);
           setCurrentSession(null);
           setStatus('unauthenticated');
           setSessionVerification('idle');
@@ -732,6 +1036,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
         } else if (isBiometricSessionError(error)) {
           if (error.code === 'ENROLLMENT_CHANGED') {
             setBiometricEnabled(false);
+            setLocalLockMode('none');
+            setHasPersistedSession(false);
           }
           setErrorMessage(error.message);
         } else {
@@ -757,7 +1063,105 @@ export function AuthProvider({ children }: PropsWithChildren) {
       },
     );
     return operation;
-  }, [readyBiometricOnce, setCurrentSession, verifyAndHydrateSession]);
+  }, [
+    hydrateFarmerGraceSession,
+    readLockMode,
+    readPersisted,
+    readyBiometricOnce,
+    setCurrentSession,
+    verifyAndHydrateSession,
+  ]);
+
+  const unlockWithAppPin = useCallback(
+    async (pin: string): Promise<boolean> => {
+      verificationGeneration.current += 1;
+      const generation = verificationGeneration.current;
+      setBiometricLoading(true);
+      setErrorMessage(null);
+      try {
+        const result = await verifyAppPin(pin);
+        if (!result.success) {
+          if (result.code === 'LOCKED_OUT') {
+            await clearLocalSession(result.message);
+          } else {
+            setErrorMessage(result.message);
+          }
+          return false;
+        }
+
+        const storedResult = await readPersisted({ skipDevicePrompt: true });
+        if (!storedResult) {
+          await clearLocalSession('The stored session could not be restored. Sign in with your password.');
+          return false;
+        }
+        setLocalLockMode('app-pin');
+        setAppPinConfigured(true);
+        setRequiresAppPinUnlock(false);
+        setHasPersistedSession(true);
+        if (storedResult.farmerOfflineGrace) {
+          hydrateFarmerGraceSession(storedResult.session);
+          return true;
+        }
+        return await verifyAndHydrateSession(
+          storedResult.session,
+          () => generation === verificationGeneration.current,
+        );
+      } catch (error: unknown) {
+        if (isStoredSessionExpiredError(error)) {
+          await clearLocalSession('Your session expired. Sign in to resume pending uploads.');
+          if (error.token) {
+            void logoutMobile(error.token).catch(() => undefined);
+          }
+        } else {
+          setErrorMessage('Could not unlock with Quick PIN. Sign in with your password.');
+        }
+        return false;
+      } finally {
+        setBiometricLoading(false);
+      }
+    },
+    [
+      clearLocalSession,
+      hydrateFarmerGraceSession,
+      readPersisted,
+      verifyAndHydrateSession,
+    ],
+  );
+
+  const setupAppPin = useCallback(
+    async (pin: string): Promise<boolean> => {
+      const activeSession = sessionRef.current;
+      if (!activeSession) {
+        setErrorMessage('Sign in before setting up a Quick PIN.');
+        return false;
+      }
+      setBiometricLoading(true);
+      setErrorMessage(null);
+      try {
+        await saveAppPin(pin);
+        if (!farmerOfflineGraceRef.current && activeSession.token) {
+          await persistSession(activeSession, 'app-pin');
+        }
+        setLocalLockMode('app-pin');
+        setBiometricEnabled(false);
+        setAppPinConfigured(true);
+        setHasPersistedSession(true);
+        setNeedsInitialPinSetup(false);
+        setErrorMessage(null);
+        return true;
+      } catch (error: unknown) {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : 'CaneGuard could not save your Quick PIN. Try again.',
+        );
+        return false;
+      } finally {
+        setBiometricLoading(false);
+      }
+    },
+    [persistSession],
+  );
 
   const enableBiometricUnlock = useCallback((): Promise<boolean> => {
     const inFlight = biometricEnableRef.current;
@@ -779,8 +1183,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
           setErrorMessage(unlock.message);
           return false;
         }
-        await saveProtectedMobileSession(activeSession);
+        await persistSession(activeSession, 'device');
+        if (typeof clearAppPin === 'function') {
+          await clearAppPin().catch(() => undefined);
+        }
         setBiometricEnabled(true);
+        setLocalLockMode('device');
+        setAppPinConfigured(false);
+        setHasPersistedSession(true);
+        setNeedsInitialPinSetup(false);
         setErrorMessage(null);
         return true;
       } catch {
@@ -807,6 +1218,53 @@ export function AuthProvider({ children }: PropsWithChildren) {
       },
     );
     return operation;
+  }, [persistSession]);
+
+  /**
+   * OFF-05: Turn off local App Lock (device lock or 4-digit Quick PIN) locally
+   * without revoking the server token or logging the user out.
+   */
+  const disableLocalLock = useCallback(async (): Promise<boolean> => {
+    const activeSession = sessionRef.current;
+    if (!activeSession) {
+      setErrorMessage('Sign in again before changing app lock.');
+      return false;
+    }
+    setBiometricLoading(true);
+    setErrorMessage(null);
+    try {
+      if (
+        localLockModeRef.current === 'device' &&
+        biometricCapabilityRef.current?.status === 'available'
+      ) {
+        const verified = await authenticateWithDeviceCredential();
+        if (!verified.success) {
+          setErrorMessage(verified.message);
+          return false;
+        }
+      }
+      if (typeof clearAppPin === 'function') {
+        await clearAppPin().catch(() => undefined);
+      }
+      if (!farmerOfflineGraceRef.current && activeSession.token) {
+        await persistSession(activeSession, 'none');
+      }
+      setLocalLockMode('none');
+      setBiometricEnabled(false);
+      setAppPinConfigured(false);
+      setNeedsInitialPinSetup(false);
+      setErrorMessage(null);
+      return true;
+    } catch {
+      setErrorMessage('CaneGuard could not update app lock right now. Try again.');
+      return false;
+    } finally {
+      setBiometricLoading(false);
+    }
+  }, [persistSession]);
+
+  const dismissInitialPinSetup = useCallback(() => {
+    setNeedsInitialPinSetup(false);
   }, []);
 
   const clearSessionAfterRemoteRevocation = useCallback(
@@ -816,11 +1274,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const changePassword = useCallback(
     async (input: PasswordChangeInput) => {
-      // Each account action starts clean so a stale message from another
-      // action cannot be shown as this action's result.
       setErrorMessage(null);
       const activeSession = sessionRef.current;
-      if (!activeSession) {
+      if (!activeSession || !activeSession.token) {
         setErrorMessage('Sign in again before changing your password.');
         return false;
       }
@@ -841,11 +1297,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const changeEmail = useCallback(
     async (input: EmailChangeInput) => {
-      // Each account action starts clean so a stale message from another
-      // action cannot be shown as this action's result.
       setErrorMessage(null);
       const activeSession = sessionRef.current;
-      if (!activeSession) {
+      if (!activeSession || !activeSession.token) {
         setErrorMessage('Sign in again before changing your email.');
         return false;
       }
@@ -866,11 +1320,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const disableBiometric = useCallback(
     async (currentPassword: string) => {
-      // Each account action starts clean so a stale message from another
-      // action cannot be shown as this action's result.
       setErrorMessage(null);
       const activeSession = sessionRef.current;
-      if (!activeSession) {
+      if (!activeSession || !activeSession.token) {
         setErrorMessage('Sign in again before disabling device unlock.');
         return false;
       }
@@ -878,8 +1330,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
         await disableBiometricApi(activeSession.token, currentPassword);
         let remoteRevocationFailed = false;
         try {
-          // Disabling biometrics removes the retained credential, so revoke the
-          // server token that would otherwise remain usable until its expiry.
           await logoutMobile(activeSession.token);
         } catch {
           remoteRevocationFailed = true;
@@ -905,11 +1355,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const enrollMobileDevice = useCallback(
     async (currentPassword: string, deviceName: string) => {
-      // Each account action starts clean so a stale message from another
-      // action cannot be shown as this action's result.
       setErrorMessage(null);
       const activeSession = sessionRef.current;
-      if (!activeSession) {
+      if (!activeSession || !activeSession.token) {
         setErrorMessage('Sign in again before enrolling this installation.');
         return false;
       }
@@ -923,9 +1371,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
         const acceptance = await acceptTokenSession(enrolledSession);
         const nextSession = acceptance.session;
         try {
-          if (biometricEnabled) {
-            await saveProtectedMobileSession(nextSession);
-          }
+          await persistSession(nextSession, localLockModeRef.current);
+          setHasPersistedSession(true);
         } catch {
           await clearLocalSession(null);
           void logoutMobile(nextSession.token).catch(() => undefined);
@@ -950,9 +1397,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
     },
     [
       acceptTokenSession,
-      biometricEnabled,
       clearLocalSession,
       markSessionExpired,
+      persistSession,
       setCurrentSession,
     ],
   );
@@ -961,10 +1408,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
     verificationGeneration.current += 1;
     revocationRef.current = null;
     setRevocation(null);
-    // Logout is always terminal for this installation: revoke the current
-    // bearer token where possible and remove both password and biometric
-    // credentials. A separate lock/unlock flow can be added later without
-    // changing the meaning of logout.
     const token = sessionRef.current?.token;
     endPendingSessionWork(sessionRef.current);
     let remoteRevocationFailed = false;
@@ -982,21 +1425,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
     } catch {
       localClearFailed = true;
     }
+    setCurrentSession(null);
+    setStatus('unauthenticated');
+    setSessionVerification('idle');
+    setBiometricEnabled(false);
+    setLocalLockMode('none');
+    setAppPinConfigured(false);
+    setHasPersistedSession(false);
+    setRequiresAppPinUnlock(false);
+    setNeedsInitialPinSetup(false);
+    setFarmerOfflineGrace(false);
     if (localClearFailed) {
-      setCurrentSession(null);
-      setStatus('unauthenticated');
-      setSessionVerification('idle');
-      setBiometricEnabled(false);
       setErrorMessage(
         'CaneGuard could not clear secure session storage. Restart the app and try logout again.',
       );
       return { localClearFailed: true, remoteRevocationFailed };
     }
 
-    setCurrentSession(null);
-    setStatus('unauthenticated');
-    setSessionVerification('idle');
-    setBiometricEnabled(false);
     setErrorMessage(
       remoteRevocationFailed
         ? 'Signed out on this device. The server token could not be revoked and may remain active.'
@@ -1007,8 +1452,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const sessionState = useMemo<SessionState>(
     () => {
-      // `clockTick` has no value of its own; it only forces this recompute
-      // when the window may have closed since the last render.
       void clockTick;
       return computeSessionState(
         status,
@@ -1068,8 +1511,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (!grant) return;
       const remaining =
         Date.parse(grant.validUntil) - estimateServerNow(Date.now(), grant);
-      // A window that has already closed needs no timer: restore and the next
-      // foreground apply it, and re-arming at zero delay would spin.
       if (!Number.isFinite(remaining) || remaining <= 0) return;
       timer = setTimeout(
         () => {
@@ -1084,8 +1525,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (next !== 'active') return;
       enforceCapabilityWindow();
       schedule();
-      // A warm session is never trusted longer than the foreground re-verify
-      // interval: ask /me again, silently, once it has gone stale.
       const verifiedAt = liveVerifiedAtRef.current;
       if (
         sessionVerificationRef.current === 'verified' &&
@@ -1106,26 +1545,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const reportCapabilityRevoked = useCallback(async (): Promise<void> => {
     const current = sessionRef.current;
     if (!current || statusRef.current !== 'authenticated') return;
-    // Carried capabilities and the grant that would revive them are dropped now;
-    // the session, the unsent records and their evidence stay where they are.
     const { capabilityGrant: _dropped, ...rest } = current;
     void _dropped;
     const next: MobileSession = { ...rest, user: { ...rest.user, capabilities: [] } };
     revocationRef.current = 'capability-revoked';
     setRevocation('capability-revoked');
     setCurrentSession(next);
-    // Best effort: without this a restart that cannot reach /me would revive
-    // the old grant from the protected entry.
     try {
-      await saveProtectedMobileSession(next);
+      await persistSession(next, localLockModeRef.current);
     } catch {
       // The in-memory drop already holds; the next successful /me replaces the grant.
     }
     await retrySessionVerification({ reason: 'revoked' });
-  }, [retrySessionVerification, setCurrentSession]);
+  }, [persistSession, retrySessionVerification, setCurrentSession]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
+      appPinConfigured,
       biometricCapability,
       biometricEnabled,
       biometricLoading,
@@ -1133,25 +1569,35 @@ export function AuthProvider({ children }: PropsWithChildren) {
       changePassword,
       clearSessionAfterRemoteRevocation,
       disableBiometric,
+      disableLocalLock,
+      dismissInitialPinSetup,
       enableBiometricUnlock,
       enrollMobileDevice,
       errorMessage,
+      farmerOfflineGrace,
       getAuthoringProvenance,
       hasCompletedLogin,
+      hasPersistedSession,
       isSessionCurrent,
+      localLockMode,
       login,
       logout,
       markSessionExpired,
+      needsInitialPinSetup,
       reportCapabilityRevoked,
+      requiresAppPinUnlock,
       retrySessionVerification,
       session,
       sessionState,
       sessionVerification,
+      setupAppPin,
       status,
+      unlockWithAppPin,
       unlockWithBiometrics,
       user: session?.user ?? null,
     }),
     [
+      appPinConfigured,
       biometricCapability,
       biometricEnabled,
       biometricLoading,
@@ -1159,21 +1605,30 @@ export function AuthProvider({ children }: PropsWithChildren) {
       changePassword,
       clearSessionAfterRemoteRevocation,
       disableBiometric,
+      disableLocalLock,
+      dismissInitialPinSetup,
       enableBiometricUnlock,
       enrollMobileDevice,
       errorMessage,
+      farmerOfflineGrace,
       getAuthoringProvenance,
       hasCompletedLogin,
+      hasPersistedSession,
       isSessionCurrent,
+      localLockMode,
       login,
       logout,
       markSessionExpired,
+      needsInitialPinSetup,
       reportCapabilityRevoked,
+      requiresAppPinUnlock,
       retrySessionVerification,
       session,
       sessionState,
       sessionVerification,
+      setupAppPin,
       status,
+      unlockWithAppPin,
       unlockWithBiometrics,
     ],
   );
@@ -1215,11 +1670,6 @@ function computeSessionState(
   });
 }
 
-/**
- * The session as it stands while /me cannot be reached: the grant's
- * capabilities when it is well-formed, owner-matching and inside its window,
- * otherwise none. The undated `user.capabilities` is never used here.
- */
 function carriedOverSession(session: MobileSession, deviceNow: number): MobileSession {
   const assessment = assessGrant(
     session.capabilityGrant ?? null,

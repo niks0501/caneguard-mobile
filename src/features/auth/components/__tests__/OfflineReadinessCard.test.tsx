@@ -6,6 +6,11 @@ import { useOfflineReadiness } from '@/features/auth/hooks/useOfflineReadiness';
 jest.mock('@/features/auth/hooks/useOfflineReadiness', () => ({
   useOfflineReadiness: jest.fn(),
 }));
+let mockLanguage: 'en' | 'tl' = 'en';
+jest.mock('@/providers/LanguagePreferenceProvider', () => ({
+  useLanguagePreference: () => ({ language: mockLanguage }),
+  useOptionalLanguage: () => mockLanguage,
+}));
 
 const mockReadiness = jest.mocked(useOfflineReadiness);
 
@@ -14,6 +19,9 @@ function readiness(overrides: Record<string, unknown> = {}) {
     assignmentCount: 3,
     checkingAssignments: false,
     deviceCredentialAvailable: true,
+    farmerOfflineGrace: false,
+    isFarmer: false,
+    localLockMode: 'device' as const,
     protectedSessionEnabled: true,
     ready: true,
     refresh: jest.fn(),
@@ -25,18 +33,42 @@ function readiness(overrides: Record<string, unknown> = {}) {
 }
 
 describe('OfflineReadinessCard', () => {
-  it('shows ready only when the protected session and cached visits are usable', async () => {
+  beforeEach(() => {
+    mockLanguage = 'en';
+  });
+
+  it('shows ready when offline access is active and visits are saved', async () => {
     mockReadiness.mockReturnValue(readiness());
 
     await render(<OfflineReadinessCard />);
 
     expect(screen.getByText('Ready for offline work')).toBeOnTheScreen();
-    expect(screen.getByText('Biometric-protected session')).toBeOnTheScreen();
+    expect(screen.getByText('Offline access')).toBeOnTheScreen();
     expect(screen.getByText('3 visits saved on this device.')).toBeOnTheScreen();
     expect(screen.getByText(/never stores your password/)).toBeOnTheScreen();
   });
 
-  it('explains a password-only restart limit instead of promising offline unlock', async () => {
+  it('stays ready with 0 assigned visits so ad-hoc field scans and reports work offline', async () => {
+    mockReadiness.mockReturnValue(
+      readiness({
+        assignmentCount: 0,
+        localLockMode: 'app-pin',
+        ready: true,
+      }),
+    );
+
+    await render(<OfflineReadinessCard />);
+
+    expect(screen.getByText('Ready for offline work')).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        '0 office visits assigned — you can still scan and file field reports offline.',
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.getByText(/4-digit Quick PIN/)).toBeOnTheScreen();
+  });
+
+  it('explains when offline persistence is off instead of promising offline access', async () => {
     mockReadiness.mockReturnValue(
       readiness({
         ready: false,
@@ -49,14 +81,14 @@ describe('OfflineReadinessCard', () => {
 
     expect(screen.getByText('Not ready for offline work')).toBeOnTheScreen();
     expect(
-      screen.getByText(/cannot restore after a restart/),
+      screen.getByText(/sign in again while online to save this session/i),
     ).toBeOnTheScreen();
     expect(
-      screen.getByText(/No protected session is configured on this device/),
+      screen.getByText(/No saved session is configured on this device/),
     ).toBeOnTheScreen();
   });
 
-  it('reports an expired protected session as not ready', async () => {
+  it('reports an expired inspector session as not ready', async () => {
     mockReadiness.mockReturnValue(
       readiness({ ready: false, sessionExpired: true }),
     );
@@ -79,5 +111,42 @@ describe('OfflineReadinessCard', () => {
       screen.getByText('Saved visits could not be read on this device.'),
     ).toBeOnTheScreen();
     expect(screen.getByText('Not ready for offline work')).toBeOnTheScreen();
+  });
+
+  it('renders a calm Tagalog offline status card for farmers', async () => {
+    mockLanguage = 'tl';
+    mockReadiness.mockReturnValue(
+      readiness({
+        assignmentCount: 0,
+        isFarmer: true,
+        localLockMode: 'none',
+        ready: true,
+      }),
+    );
+
+    await render(<OfflineReadinessCard />);
+
+    expect(screen.getByText('Handa offline')).toBeOnTheScreen();
+    expect(
+      screen.getByText(/Mananatiling naka-sign in ang account mo/),
+    ).toBeOnTheScreen();
+  });
+
+  it('renders personal-scan offline grace status for farmers past 30-day token expiry', async () => {
+    mockLanguage = 'en';
+    mockReadiness.mockReturnValue(
+      readiness({
+        assignmentCount: 0,
+        farmerOfflineGrace: true,
+        isFarmer: true,
+        localLockMode: 'none',
+        ready: true,
+      }),
+    );
+
+    await render(<OfflineReadinessCard />);
+
+    expect(screen.getByText('Working offline (personal scans)')).toBeOnTheScreen();
+    expect(screen.getByText(/keep scanning and viewing your saved scans offline/)).toBeOnTheScreen();
   });
 });

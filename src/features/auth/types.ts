@@ -139,3 +139,9 @@ export type SessionVerificationStatus =
   | 'pending'
   | 'verified'
   | 'unavailable';
+
+/**
+ * Cold-start local lock mode for a persisted offline session.
+ * Decoupled from session persistence itself so every phone can work offline.
+ */
+export type LocalLockMode = 'none' | 'device' | 'app-pin';

@@ -10,56 +10,75 @@ import {
   type MissingStep,
   type SessionState,
 } from '@/features/auth/domain/sessionState';
+import type { LocalLockMode } from '@/features/auth/types';
 import { net } from '@/features/net/reconnectCoordinator';
 
 export interface OfflineReadinessState {
   assignmentCount: number | null;
   checkingAssignments: boolean;
-  /** A protected unlock credential is configured on this device. */
+  /** The active local cold-start lock mode ('none' | 'device' | 'app-pin'). */
+  localLockMode: LocalLockMode;
+  /** Whether the signed-in user is a farmer. */
+  isFarmer: boolean;
+  /** True when a farmer resumed past 30-day token expiry in personal-scan grace mode. */
+  farmerOfflineGrace: boolean;
+  /** An offline session is persisted on this device. */
   protectedSessionEnabled: boolean;
-  /** Whether the configured unlock path includes a strong biometric. */
+  /** Whether the device has a strong biometric available. */
   strongBiometricsAvailable: boolean | null;
   /** Whether the device PIN, pattern, or password can unlock the device. */
   deviceCredentialAvailable: boolean;
-  /** The protected session has an expiry in the past. */
+  /** The persisted inspector session has an expiry in the past. */
   sessionExpired: boolean;
   sessionExpiresAt: string | null;
   /** The one step still missing before offline work, or null when ready. */
   missingStep?: MissingStep | null;
-  /** Derived from the session union and the saved visits; never from loose flags. */
+  /** Derived from the session union, role, and saved state; never from loose flags. */
   ready: boolean;
   sessionState?: SessionState;
   refresh: () => void;
 }
 
 /**
- * D01 (readiness-first): reports whether this device can actually resume field
- * work offline. It reflects the existing security boundary; it never suggests
- * storing a password or weakening authoritative revocation.
+ * D01 (readiness-first): reports whether this device can resume field or
+ * personal scan work offline. Persistence is automatic after sign-in and no
+ * longer requires biometric hardware or pre-downloaded visits.
  */
 export function useOfflineReadiness(): OfflineReadinessState {
   const database = useCaneGuardDatabase();
-  const { biometricCapability, biometricEnabled, session, sessionState, user } = useAuth();
+  const {
+    biometricCapability,
+    biometricEnabled,
+    farmerOfflineGrace = false,
+    hasPersistedSession,
+    localLockMode = biometricEnabled ? 'device' : 'none',
+    session,
+    sessionState,
+    user,
+  } = useAuth();
   const [assignmentCount, setAssignmentCount] = useState<number | null>(null);
   const [checkingAssignments, setCheckingAssignments] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const ownerIdentity = user?.uuid ?? null;
+  const isFarmer = user?.role === 'farmer';
   const sessionExpiresAt = session?.expiresAt ?? null;
 
   const refresh = useCallback(() => {
     const expiresAt = sessionExpiresAt;
-    setSessionExpired(
+    const rawExpired =
       expiresAt !== null &&
-        Number.isFinite(Date.parse(expiresAt)) &&
-        Date.parse(expiresAt) <= Date.now(),
-    );
+      Number.isFinite(Date.parse(expiresAt)) &&
+      Date.parse(expiresAt) <= Date.now();
+    // Farmers enter offline personal-scan grace mode instead of a hard expiry wall.
+    setSessionExpired(!isFarmer && rawExpired);
 
     if (
+      isFarmer ||
       !ownerIdentity ||
       database === EMPTY_DATABASE ||
       typeof database.select !== 'function'
     ) {
-      setAssignmentCount(null);
+      setAssignmentCount(isFarmer ? 0 : null);
       setCheckingAssignments(false);
       return;
     }
@@ -82,12 +101,10 @@ export function useOfflineReadiness(): OfflineReadinessState {
     return () => {
       active = false;
     };
-  }, [database, ownerIdentity, sessionExpiresAt]);
+  }, [database, isFarmer, ownerIdentity, sessionExpiresAt]);
 
   useEffect(() => {
     let active = true;
-    // Deferred so the first readiness answer arrives from the cache read
-    // rather than as a synchronous state write during the effect.
     void Promise.resolve().then(() => {
       if (active) {
         refresh();
@@ -98,13 +115,10 @@ export function useOfflineReadiness(): OfflineReadinessState {
     };
   }, [refresh]);
 
-  // A returning inspector sees a fresh readiness answer without a mount: the
-  // coordinator settles every reconnect run, offline or up to date, and
-  // readiness refreshes then, after Download has filled the cache.
   useEffect(() => net.onSettled(refresh), [refresh]);
 
-  const protectedSessionEnabled = biometricEnabled && session !== null;
-  // Auth doubles that predate the union fall back to "verified while signed in".
+  const protectedSessionEnabled =
+    (Boolean(hasPersistedSession) || Boolean(biometricEnabled)) && session !== null;
   const state: SessionState =
     sessionState ??
     (session
@@ -113,21 +127,26 @@ export function useOfflineReadiness(): OfflineReadinessState {
   const readiness = deriveReadiness({
     biometricProtected: protectedSessionEnabled,
     cachedVisits: assignmentCount,
+    farmerOfflineGrace,
     now: estimateServerNow(deviceClockNow(), session?.capabilityGrant ?? null),
+    role: user?.role ?? 'field_reporter',
     state,
   });
 
   return {
     assignmentCount,
     checkingAssignments,
+    deviceCredentialAvailable: biometricCapability?.deviceCredentialAvailable ?? false,
+    farmerOfflineGrace,
+    isFarmer,
+    localLockMode,
     missingStep: readiness.missing,
     protectedSessionEnabled,
-    deviceCredentialAvailable: biometricCapability?.deviceCredentialAvailable ?? false,
-    strongBiometricsAvailable: biometricCapability?.strongBiometricsAvailable ?? null,
     ready: readiness.ready && !sessionExpired,
     refresh,
-    sessionState: state,
     sessionExpired,
     sessionExpiresAt,
+    sessionState: state,
+    strongBiometricsAvailable: biometricCapability?.strongBiometricsAvailable ?? null,
   };
 }

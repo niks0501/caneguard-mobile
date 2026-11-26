@@ -330,12 +330,16 @@ export const FIELD_SURVEY_MODE_COPY = {
   identity_rejected: FIELD_SURVEY_COPY.surveyIdentityRejected,
 } as const;
 
-/** Offline readiness (D01) — before visits without a connection. */
+/** Offline readiness (D01) — calm status for offline work on any phone. */
 export const OFFLINE_READINESS_COPY = {
   readyTitle: 'Ready for offline work',
   notReadyTitle: 'Not ready for offline work',
   explanation:
-    'CaneGuard keeps the existing protected-session boundary: a password-only sign-in is not stored, so closing the app while offline returns you to the sign-in screen. Protected device unlock keeps the same unexpired account resumable offline; it never stores your password or ignores a rejected credential.',
+    'Your account stays signed in offline on this phone — no biometrics required. CaneGuard never stores your password and still honors server revocation when you reconnect.',
+  loginReadyNote:
+    'Works offline after sign-in. Sign in once while online — no biometrics needed to keep working in the field.',
+  zeroVisitsDetail:
+    '0 office visits assigned — you can still scan and file field reports offline.',
 } as const;
 
 /**
@@ -384,11 +388,8 @@ export function getMissingStepCopy(
     : MISSING_STEP_COPY[step];
 }
 
-/** One-time "Ready for the field" sheet after a password sign-in, and the quiet Home line. */
+/** Quiet Home readiness fallback line for inspectors. */
 export const READY_FOR_FIELD_COPY = {
-  sheetTitle: 'Ready for the field?',
-  sheetNote: 'Your password is never stored on this phone.',
-  sheetNotNow: 'Not now',
   homeLineOther: 'Not ready for offline work. Check your visits and sign-in.',
 } as const;
 
@@ -683,6 +684,21 @@ export type FarmerCopyBlock = {
     expiresUnavailable: string; sessionExpiryUnavailable: string;
     biometricAvailable: string; biometricAvailableDeviceCredential: string;
     biometricNotEnrolled: string; biometricUnsupported: string; biometricUnavailable: string;
+    offlineAccessTitle: string;
+    offlineAccessOn: string;
+    offlineAccessGrace: string;
+    appLockTitle: string;
+    appLockOffDescription: string;
+    appLockDeviceBiometricOn: string;
+    appLockDeviceCredentialOn: string;
+    appLockPinOn: string;
+    appLockTurnOff: string;
+    appLockTurningOff: string;
+    appLockTurnedOffToast: string;
+    appLockTurnedOffMessage: string;
+    appLockSetPin: string;
+    appLockChangePin: string;
+    appLockUseDevice: string;
     changePassword: string; changePasswordDescription: string; openChangePassword: string;
     changeEmail: string; changeEmailDescription: (email: string) => string; openChangeEmail: string;
     deviceEnrollment: string; deviceEnrollmentDescription: (name: string) => string;
@@ -694,6 +710,34 @@ export type FarmerCopyBlock = {
     email: { title: string; newEmail: string; currentPassword: string; confirmPassword: string; submit: string; updating: string; confirmTitle: string; confirmMessage: string; confirm: string; toast: string };
     enrollment: { title: string; name: string; nameHelp: string; namePlaceholder: string; currentPassword: string; confirmPassword: string; submit: string; submitting: string; confirmTitle: string; confirmMessage: string; confirm: string; toast: string };
     disableUnlock: { currentPassword: string; confirmPassword: string; submitting: string };
+    appPin: {
+      title: string;
+      onboardingTitle: string;
+      onboardingHint: string;
+      pinLabel: string;
+      pinPlaceholder: string;
+      confirmLabel: string;
+      confirmPlaceholder: string;
+      mismatchError: string;
+      invalidError: string;
+      submit: string;
+      saving: string;
+      skip: string;
+      savedToast: string;
+      unlockTitle: string;
+      unlockSubtitle: string;
+      unlockButton: string;
+      unlocking: string;
+      usePasswordInstead: string;
+    };
+  };
+  offlineStatus: {
+    sectionLabel: string;
+    readyTitle: string;
+    readyBody: string;
+    graceTitle: string;
+    graceBody: string;
+    graceHomeNotice: string;
   };
   /** Offline-unlock wording, the single owner for every unlock surface. */
   unlock: { biometric: OfflineUnlockVariantCopy; deviceCredential: OfflineUnlockVariantCopy };
@@ -710,6 +754,8 @@ export type FarmerCopyBlock = {
     signInForBiometric: string; biometricUnavailable: string; biometricNotEnrolled: string;
     biometricCancelled: string; biometricVerificationFailed: string; biometricEnableFailed: string;
     biometricRevokeWarning: string; secureStorageUnavailable: string;
+    appLockUpdateFailed: string; appPinSaveFailed: string; appPinUnavailable: string;
+    appPinLockedOut: string; appPinInvalid: string; appPinUnlockFailed: string;
   };
   imagePreview: {
     title: string; noImageTitle: string; noImageMessage: string; chooseImage: string;
@@ -1038,11 +1084,26 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       fallbackName: 'Field Inspector', fallbackEmail: 'Authenticated mobile account', defaultInstallationName: 'CaneGuard mobile device',
       expiresUnavailable: 'Local session safety expiry unavailable; sign in again before continuing.',
       sessionExpiryUnavailable: 'Session expiry is unavailable. Sign in again to establish a server session.',
-      biometricAvailable: 'A strong platform biometric is available for this installation.',
-      biometricAvailableDeviceCredential: 'No strong biometric found. Your device PIN, pattern or password can unlock CaneGuard offline, with weaker protection.',
-      biometricNotEnrolled: 'Enroll a strong biometric in device settings before enabling this option.',
-      biometricUnsupported: 'This device does not expose a strong platform biometric. Use password sign-in.',
-      biometricUnavailable: 'Biometric capability is unavailable until the native development build is ready. Use password sign-in.',
+      biometricAvailable: 'Your phone’s biometric or screen lock can protect CaneGuard when opening offline.',
+      biometricAvailableDeviceCredential: 'Your phone’s PIN, pattern, or password can protect CaneGuard when opening offline.',
+      biometricNotEnrolled: 'No phone screen lock detected. You can protect CaneGuard with a 4-digit CaneGuard PIN.',
+      biometricUnsupported: 'No phone screen lock detected. You can protect CaneGuard with a 4-digit CaneGuard PIN.',
+      biometricUnavailable: 'Phone lock is unavailable on this device. You can protect CaneGuard with a 4-digit CaneGuard PIN.',
+      offlineAccessTitle: 'Offline access',
+      offlineAccessOn: 'On — your account stays signed in offline after restarting the app.',
+      offlineAccessGrace: 'Working offline (personal scans) — sign in when online for account changes.',
+      appLockTitle: 'App lock',
+      appLockOffDescription: 'Off — opens directly into CaneGuard. Turn on if you share this phone.',
+      appLockDeviceBiometricOn: 'On — uses your phone’s fingerprint or screen lock when opening the app.',
+      appLockDeviceCredentialOn: 'On — uses your phone’s PIN, pattern, or password when opening the app.',
+      appLockPinOn: 'On — uses your 4-digit CaneGuard Quick PIN when opening the app.',
+      appLockTurnOff: 'Turn off app lock',
+      appLockTurningOff: 'Updating…',
+      appLockTurnedOffToast: 'App lock turned off',
+      appLockTurnedOffMessage: 'App lock is off. Your account stays signed in for offline work.',
+      appLockSetPin: 'Set up 4-digit PIN',
+      appLockChangePin: 'Change 4-digit PIN',
+      appLockUseDevice: 'Use phone lock',
       changePassword: 'Change password',
       changePasswordDescription: 'Password protection is on. Changing your password signs out every active session.',
       openChangePassword: 'Open the change password form', changeEmail: 'Change email',
@@ -1058,6 +1119,34 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       email: { title: 'Change email', newEmail: 'New email', currentPassword: 'Current password', confirmPassword: 'Enter your password to change email', submit: 'Change email', updating: 'Updating…', confirmTitle: 'Change email?', confirmMessage: 'Changing your email signs out every active session and requires verification of the new address.', confirm: 'Yes, change it', toast: 'Email updated' },
       enrollment: { title: 'Device enrollment', name: 'Installation name', nameHelp: 'A name for this installation on the office system. It is stored securely and is not a hardware identifier.', namePlaceholder: 'CaneGuard mobile device', currentPassword: 'Current password', confirmPassword: 'Enter your password to enroll this device', submit: 'Enroll this installation', submitting: 'Enrolling…', confirmTitle: 'Enroll this installation?', confirmMessage: 'This installation will be enrolled with a fresh server session. Existing sessions on other device identities are unchanged.', confirm: 'Enroll', toast: 'Device enrolled' },
       disableUnlock: { currentPassword: 'Current password', confirmPassword: 'Enter your password to disable', submitting: 'Disabling…' },
+      appPin: {
+        title: '4-digit Quick PIN',
+        onboardingTitle: 'Set a 4-digit Quick PIN',
+        onboardingHint: 'Your phone has no screen lock. Add a 4-digit PIN to protect office data while working offline, or skip for now.',
+        pinLabel: '4-digit PIN',
+        pinPlaceholder: 'Enter 4 digits',
+        confirmLabel: 'Repeat 4-digit PIN',
+        confirmPlaceholder: 'Re-enter 4 digits',
+        mismatchError: 'The two PINs do not match.',
+        invalidError: 'Enter exactly 4 numbers.',
+        submit: 'Save PIN',
+        saving: 'Saving…',
+        skip: 'Not now',
+        savedToast: 'Quick PIN saved',
+        unlockTitle: 'Enter your 4-digit PIN',
+        unlockSubtitle: 'Unlock CaneGuard offline without needing signal.',
+        unlockButton: 'Unlock',
+        unlocking: 'Unlocking…',
+        usePasswordInstead: 'Sign in with password instead',
+      },
+    },
+    offlineStatus: {
+      sectionLabel: 'OFFLINE ACCESS',
+      readyTitle: 'Ready offline',
+      readyBody: 'Your account stays signed in and your scans work without signal.',
+      graceTitle: 'Working offline (personal scans)',
+      graceBody: 'You can keep scanning and viewing your saved scans offline. Sign in when online for account changes.',
+      graceHomeNotice: 'Working offline for personal scans. Sign in when online to refresh your account.',
     },
     unlock: {
       biometric: {
@@ -1144,6 +1233,12 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       biometricEnableFailed: 'Device unlock could not be enabled. Your password session is still active.',
       biometricRevokeWarning: 'Device unlock was disabled on this device, but the server token could not be revoked.',
       secureStorageUnavailable: 'Secure session storage is unavailable. Device enrollment was cancelled.',
+      appLockUpdateFailed: 'CaneGuard could not update app lock right now. Try again.',
+      appPinSaveFailed: 'CaneGuard could not save your Quick PIN on this device.',
+      appPinUnavailable: 'Quick PIN is unavailable. Sign in with your password.',
+      appPinLockedOut: 'Too many incorrect PIN attempts. Sign in with your password.',
+      appPinInvalid: 'Incorrect PIN. Try again or sign in with your password.',
+      appPinUnlockFailed: 'Could not unlock with Quick PIN. Sign in with your password.',
     },
     imagePreview: {
       title: 'Image preview', noImageTitle: 'No image selected',
@@ -1471,11 +1566,26 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       fallbackName: 'Inspektor sa bukid', fallbackEmail: 'Naka-sign in na mobile account', defaultInstallationName: 'Mobile device ng CaneGuard',
       expiresUnavailable: 'Hindi makuha ang lokal na takdang oras ng session; mag-sign in muli bago magpatuloy.',
       sessionExpiryUnavailable: 'Hindi makuha ang takdang oras ng session. Mag-sign in muli para magkaroon ng server session.',
-      biometricAvailable: 'May magagamit na malakas na biometric sa installation na ito.',
-      biometricAvailableDeviceCredential: 'Walang malakas na biometric. Magagamit ang PIN, pattern o password ng device para i-unlock ang CaneGuard offline, na mas mahina ang proteksyon.',
-      biometricNotEnrolled: 'Mag-enroll muna ng malakas na biometric sa settings ng device.',
-      biometricUnsupported: 'Walang malakas na biometric ang device na ito. Mag-sign in gamit ang password.',
-      biometricUnavailable: 'Hindi pa magagamit ang biometric hangga’t hindi handa ang native development build. Mag-sign in gamit ang password.',
+      biometricAvailable: 'Magagamit ang biometric o screen lock ng telepono para protektahan ang CaneGuard.',
+      biometricAvailableDeviceCredential: 'Magagamit ang PIN, pattern o password ng telepono para buksan ang CaneGuard offline.',
+      biometricNotEnrolled: 'Walang screen lock ang telepono. Maaari kang gumamit ng 4-digit na Quick PIN ng CaneGuard.',
+      biometricUnsupported: 'Walang screen lock ang telepono. Maaari kang gumamit ng 4-digit na Quick PIN ng CaneGuard.',
+      biometricUnavailable: 'Hindi magagamit ang lock ng telepono. Maaari kang gumamit ng 4-digit na Quick PIN ng CaneGuard.',
+      offlineAccessTitle: 'Paggamit offline',
+      offlineAccessOn: 'Naka-on — mananatiling naka-sign in ang account mo kahit walang signal.',
+      offlineAccessGrace: 'Gumagana offline (personal na scan) — mag-sign in kapag may signal para sa mga pagbabago sa account.',
+      appLockTitle: 'Lock ng app',
+      appLockOffDescription: 'Naka-off — direktang bubukas ang CaneGuard. I-on kung may iba pang gumagamit ng teleponong ito.',
+      appLockDeviceBiometricOn: 'Naka-on — ginagamit ang fingerprint o screen lock ng telepono kapag binubuksan ang app.',
+      appLockDeviceCredentialOn: 'Naka-on — ginagamit ang PIN, pattern o password ng telepono kapag binubuksan ang app.',
+      appLockPinOn: 'Naka-on — ginagamit ang iyong 4-digit na Quick PIN ng CaneGuard kapag binubuksan ang app.',
+      appLockTurnOff: 'I-off ang lock ng app',
+      appLockTurningOff: 'Ina-update…',
+      appLockTurnedOffToast: 'Naka-off ang lock ng app',
+      appLockTurnedOffMessage: 'Naka-off na ang lock ng app. Mananatiling naka-sign in ang iyong account offline.',
+      appLockSetPin: 'Maglagay ng 4-digit na PIN',
+      appLockChangePin: 'Palitan ang 4-digit na PIN',
+      appLockUseDevice: 'Gamitin ang lock ng telepono',
       changePassword: 'Palitan ang password',
       changePasswordDescription: 'Protektado ang account ng password. Kapag pinalitan ito, mala-log out ang lahat ng aktibong session.',
       openChangePassword: 'Buksan ang form para palitan ang password', changeEmail: 'Palitan ang email',
@@ -1491,6 +1601,34 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       email: { title: 'Palitan ang email', newEmail: 'Bagong email', currentPassword: 'Kasalukuyang password', confirmPassword: 'Kumpirmahin para palitan ang email', submit: 'Palitan ang email', updating: 'Ina-update…', confirmTitle: 'Palitan ang email?', confirmMessage: 'Mala-log out ang lahat ng aktibong session kapag pinalitan ang email. Kailangang beripikahin ang bagong address.', confirm: 'Kumpirmahin ang pagpapalit', toast: 'Na-update ang email' },
       enrollment: { title: 'Pag-enroll ng device', name: 'Pangalan ng installation', nameHelp: 'Pangalan ng installation na ito sa system ng opisina. Ligtas itong itinatago at hindi ito pagkakakilanlan ng hardware.', namePlaceholder: 'Mobile device ng CaneGuard', currentPassword: 'Kasalukuyang password', confirmPassword: 'Kumpirmahin ang installation na ito', submit: 'I-enroll ang installation na ito', submitting: 'Nag-e-enroll…', confirmTitle: 'I-enroll ang installation na ito?', confirmMessage: 'Gagamit ang installation na ito ng bagong server session. Hindi mababago ang ibang session sa iba pang device.', confirm: 'I-enroll', toast: 'Na-enroll ang device' },
       disableUnlock: { currentPassword: 'Kasalukuyang password', confirmPassword: 'Kumpirmahin para i-off', submitting: 'Ino-off…' },
+      appPin: {
+        title: '4-digit na Quick PIN',
+        onboardingTitle: 'Maglagay ng 4-digit na Quick PIN',
+        onboardingHint: 'Walang screen lock ang telepono. Maglagay ng 4-digit na PIN para protektahan ang datos offline, o laktawan muna.',
+        pinLabel: '4-digit na PIN',
+        pinPlaceholder: 'Ilagay ang 4 na numero',
+        confirmLabel: 'Ulitin ang 4-digit na PIN',
+        confirmPlaceholder: 'Ilagay muli ang 4 na numero',
+        mismatchError: 'Hindi magkatugma ang dalawang PIN.',
+        invalidError: 'Maglagay ng eksaktong 4 na numero.',
+        submit: 'I-save ang PIN',
+        saving: 'Sine-save…',
+        skip: 'Hindi muna',
+        savedToast: 'Na-save ang Quick PIN',
+        unlockTitle: 'Ilagay ang iyong 4-digit na PIN',
+        unlockSubtitle: 'Buksan ang CaneGuard offline kahit walang signal.',
+        unlockButton: 'Buksan',
+        unlocking: 'Binubuksan…',
+        usePasswordInstead: 'Mag-sign in gamit ang password',
+      },
+    },
+    offlineStatus: {
+      sectionLabel: 'PAGGAMIT OFFLINE',
+      readyTitle: 'Handa offline',
+      readyBody: 'Mananatiling naka-sign in ang account mo at magagamit ang iyong mga scan kahit walang signal.',
+      graceTitle: 'Gumagana offline (personal na scan)',
+      graceBody: 'Maaari ka pa ring mag-scan at tumingin ng mga na-save na scan offline. Mag-sign in kapag may signal para sa mga pagbabago sa account.',
+      graceHomeNotice: 'Gumagana offline para sa mga personal na scan. Mag-sign in kapag may signal para i-refresh ang account.',
     },
     unlock: {
       biometric: {
@@ -1577,6 +1715,12 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
       biometricEnableFailed: 'Hindi na-on ang pagbukas gamit ang device. Nananatiling aktibo ang session gamit ang password.',
       biometricRevokeWarning: 'Na-off ang pagbukas gamit ang device sa device na ito, pero hindi nabawi ang token sa server.',
       secureStorageUnavailable: 'Hindi magagamit ang ligtas na imbakan ng session. Kinansela ang pag-enroll ng device.',
+      appLockUpdateFailed: 'Hindi ma-update ng CaneGuard ang lock ng app ngayon. Subukan muli.',
+      appPinSaveFailed: 'Hindi mai-save ng CaneGuard ang iyong 4-digit na Quick PIN sa device na ito.',
+      appPinUnavailable: 'Hindi magagamit ang Quick PIN. Mag-sign in gamit ang password.',
+      appPinLockedOut: 'Masyadong maraming maling pagsubok ng PIN. Mag-sign in gamit ang password.',
+      appPinInvalid: 'Mali ang PIN. Subukan muli o mag-sign in gamit ang password.',
+      appPinUnlockFailed: 'Hindi mabuksan gamit ang Quick PIN. Mag-sign in gamit ang password.',
     },
     imagePreview: {
       title: 'Preview ng larawan', noImageTitle: 'Walang napiling larawan',

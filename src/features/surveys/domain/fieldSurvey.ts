@@ -48,7 +48,17 @@ const MIN_DISTINCT_VERTICES = 3;
 const MAX_SURVEY_VERTICES = 2_000;
 const MAX_AFFECTED_AREAS = 100;
 const MAX_TOTAL_AREA_VERTICES = 10_000;
+/** Matches server `MeasurementProvenance::MAX_WAYPOINTS` so large walks fail fast offline. */
+export const MAX_AFFECTED_AREA_WAYPOINTS = 1_500;
 export const AFFECTED_AREA_CONTAINMENT_TOLERANCE_METERS = 5;
+/**
+ * IEEE-754 projection onto a diagonal plot edge (`DistanceOp.nearestPoints`) can leave a
+ * sub-nanometre (~1e-9 m²) sliver outside the plot ring. Ignore floating-point slivers
+ * while still rejecting real outside protrusions and concave notches (typically >= 0.01 m²).
+ */
+const OUTSIDE_SLIVER_AREA_EPSILON_SQM = 1e-4;
+/** Ignore boundary-snapped points within 1 mm of the plot edge when reporting outside distance. */
+const OUTSIDE_POINT_EPSILON_METERS = 1e-3;
 const reader = new GeoJSONReader(new GeometryFactory());
 
 export function validateSurveyWaypoints(waypoints: SurveyWaypoint[]): SurveyValidation {
@@ -155,7 +165,7 @@ export function measureAffectedAreas(
     } catch {
       return affectedInvalid('OUTSIDE_PLOT', 'Every affected area must remain within the plot boundary.');
     }
-    if (!remainder || !remainder.isEmpty()) {
+    if (remainderExceedsPlot(remainder)) {
       return affectedInvalid('OUTSIDE_PLOT', 'Every affected area must remain within the plot boundary.');
     }
     geometries.push(geometry);
@@ -228,20 +238,22 @@ export function snapAffectedAreaWaypoints(plot: SurveyPolygon, waypoints: Survey
 /**
  * How far an unclosed affected boundary sticks out of the plot, after the usual snap: how many points are still
  * outside and the farthest one in metres, so a rejection can say what to fix. Null when nothing sticks out.
+ * Uses exact JSTS polygon distance rather than ray-casting so vertices snapped onto diagonal edges are never miscounted.
  */
 export function describeOutsidePlot(plot: SurveyPolygon, waypoints: SurveyWaypoint[]): { count: number; maxMeters: number } | null {
   const plotGeometry = readValidPolygon(plot);
   if (!plotGeometry) return null;
-  const ring = plot.coordinates[0];
   let count = 0;
   let maxMeters = 0;
   for (const waypoint of waypoints) {
-    if (pointInRing(waypoint.longitude, waypoint.latitude, ring)) continue;
     try {
-      const nearest = DistanceOp.nearestPoints(plotGeometry, reader.read({ type: 'Point', coordinates: [waypoint.longitude, waypoint.latitude] }))?.[0] as { x?: number; y?: number } | undefined;
+      const pointGeometry = reader.read({ type: 'Point', coordinates: [waypoint.longitude, waypoint.latitude] });
+      const nearest = DistanceOp.nearestPoints(plotGeometry, pointGeometry)?.[0] as { x?: number; y?: number } | undefined;
       if (typeof nearest?.x !== 'number' || typeof nearest?.y !== 'number') continue;
+      const distanceMeters = geodesicDistanceMeters(waypoint.latitude, waypoint.longitude, nearest.y, nearest.x);
+      if (!Number.isFinite(distanceMeters) || distanceMeters <= OUTSIDE_POINT_EPSILON_METERS) continue;
       count += 1;
-      maxMeters = Math.max(maxMeters, geodesicDistanceMeters(waypoint.latitude, waypoint.longitude, nearest.y, nearest.x));
+      maxMeters = Math.max(maxMeters, distanceMeters);
     } catch {
       continue;
     }
@@ -259,7 +271,7 @@ export function findAffectedAreasOutsidePlot(plot: SurveyPolygon, affectedAreas:
     if (!geometry) return;
     try {
       const remainder = OverlayOp.difference(geometry, plotGeometry);
-      if (!remainder || !remainder.isEmpty()) outside.push(index);
+      if (remainderExceedsPlot(remainder)) outside.push(index);
     } catch {
       outside.push(index);
     }
@@ -274,9 +286,14 @@ export function validateAffectedAreaWaypoints(
   if (!Array.isArray(waypointSets) || waypointSets.length !== polygons.length) {
     return affectedInvalid('INVALID_POLYGON', 'Affected-area capture provenance does not match its boundary.');
   }
+  let totalWaypoints = 0;
   for (let index = 0; index < polygons.length; index += 1) {
     const waypoints = waypointSets[index];
     if (!Array.isArray(waypoints) || waypoints.length === 0) return affectedInvalid('INVALID_POLYGON', 'Affected-area capture provenance does not match its boundary.');
+    totalWaypoints += waypoints.length;
+    if (totalWaypoints > MAX_AFFECTED_AREA_WAYPOINTS) {
+      return affectedInvalid('TOO_MANY_VERTICES', 'These affected-area boundaries contain too many points to send.');
+    }
     const derived = validateSurveyWaypoints(waypoints);
     if (!derived.valid) return affectedInvalid(derived.error.code, derived.error.message);
     if (JSON.stringify(derived.polygon.coordinates) !== JSON.stringify(polygons[index].coordinates)) {
@@ -320,6 +337,19 @@ function readValidPolygon(polygon: SurveyPolygon): any | null {
   }
 }
 
+function remainderExceedsPlot(remainder: unknown): boolean {
+  if (!remainder) return true;
+  const geometry = remainder as {
+    isEmpty(): boolean;
+    getGeometryType(): string;
+    getNumGeometries(): number;
+    getGeometryN(index: number): unknown;
+  };
+  if (geometry.isEmpty()) return false;
+  const areaSqm = geodesicGeometryArea(geometry);
+  return !Number.isFinite(areaSqm) || areaSqm > OUTSIDE_SLIVER_AREA_EPSILON_SQM;
+}
+
 function geodesicGeometryArea(geometry: {
   getGeometryType(): string;
   getNumGeometries(): number;
@@ -339,6 +369,9 @@ function geodesicGeometryArea(geometry: {
       area -= geodesicRingArea(polygon.getInteriorRingN(index).getCoordinates());
     }
     return area;
+  }
+  if (geometryType !== 'MultiPolygon' && geometryType !== 'GeometryCollection') {
+    return 0;
   }
   let total = 0;
   for (let index = 0; index < geometry.getNumGeometries(); index += 1) {

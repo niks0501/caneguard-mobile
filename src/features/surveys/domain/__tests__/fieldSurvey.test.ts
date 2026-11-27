@@ -1,6 +1,8 @@
 import {
   describeOutsidePlot,
+  findAffectedAreasOutsidePlot,
   AFFECTED_AREA_CONTAINMENT_TOLERANCE_METERS,
+  MAX_AFFECTED_AREA_WAYPOINTS,
   measureAffectedAreas,
   ringArea,
   snapAffectedAreaWaypoints,
@@ -187,5 +189,82 @@ describe('describeOutsidePlot', () => {
   it('is null when every point is inside', () => {
     if (!plot.valid) throw new Error('plot');
     expect(describeOutsidePlot(plot.polygon, [at(14.0005, 120.0005)])).toBeNull();
+  });
+
+  it('accepts diagonal-edge snapped affected polygons and never reports snapped edge points as outside', () => {
+    const diagonalPlot = validateSurveyWaypoints([
+      at(10.700000, 122.950000),
+      at(10.700412, 122.951347),
+      at(10.701689, 122.950921),
+      at(10.701204, 122.949613),
+    ]);
+    if (!diagonalPlot.valid) throw new Error('diagonal plot');
+    const ring = diagonalPlot.polygon.coordinates[0];
+    const inside1 = at(10.7008, 122.9505);
+    const inside2 = at(10.7009, 122.9508);
+
+    // Sweep points ~2.2 m outside all 4 diagonal edges (within the 5 m forgiveness zone).
+    for (let edge = 0; edge < 4; edge += 1) {
+      const a = ring[edge];
+      const b = ring[edge + 1];
+      const dx = b[0] - a[0];
+      const dy = b[1] - a[1];
+      const len = Math.hypot(dx, dy);
+      const nx = dy / len;
+      const ny = -dx / len;
+      for (let k = 1; k <= 12; k += 1) {
+        const t1 = k / 16;
+        const t2 = (k + 2) / 16;
+        const raw = [
+          at(a[1] + dy * t1 + ny * 0.00002, a[0] + dx * t1 + nx * 0.00002),
+          at(a[1] + dy * t2 + ny * 0.00002, a[0] + dx * t2 + nx * 0.00002),
+          inside2,
+          inside1,
+        ];
+        const snapped = snapAffectedAreaWaypoints(diagonalPlot.polygon, raw);
+        const candidate = validateSurveyWaypoints(snapped);
+        if (!candidate.valid) continue;
+        expect(measureAffectedAreas(diagonalPlot.polygon, [candidate.polygon]).valid).toBe(true);
+        expect(findAffectedAreasOutsidePlot(diagonalPlot.polygon, [candidate.polygon])).toEqual([]);
+        expect(describeOutsidePlot(diagonalPlot.polygon, snapped)).toBeNull();
+      }
+    }
+
+    // A point 6 m outside the diagonal edge still stays outside and reports real distance.
+    const a = ring[0];
+    const b = ring[1];
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const len = Math.hypot(dx, dy);
+    const outside6m = at(a[1] + dy * 0.5 + (-dx / len) * 0.000055, a[0] + dx * 0.5 + (dy / len) * 0.000055);
+    const snappedOutside = snapAffectedAreaWaypoints(diagonalPlot.polygon, [outside6m, inside2, inside1]);
+    const outsideCandidate = validateSurveyWaypoints(snappedOutside);
+    if (!outsideCandidate.valid) throw new Error('outside candidate');
+    expect(measureAffectedAreas(diagonalPlot.polygon, [outsideCandidate.polygon])).toMatchObject({
+      valid: false,
+      error: { code: 'OUTSIDE_PLOT' },
+    });
+    const detail = describeOutsidePlot(diagonalPlot.polygon, snappedOutside);
+    expect(detail?.count).toBe(1);
+    expect(detail?.maxMeters).toBeGreaterThan(5);
+  });
+
+  it('rejects affected-area waypoint sets exceeding the 1,500-waypoint server budget', () => {
+    const circle = (count: number, offset: number): SurveyWaypoint[] =>
+      Array.from({ length: count }, (_, index) => {
+        const angle = (index / count) * Math.PI * 2;
+        return at(14.0005 + offset + Math.sin(angle) * 0.0001, 120.0005 + Math.cos(angle) * 0.0001);
+      });
+    const sets = [circle(600, 0), circle(600, 0.00005), circle(301, 0.0001)];
+    expect(sets.reduce((sum, set) => sum + set.length, 0)).toBe(MAX_AFFECTED_AREA_WAYPOINTS + 1);
+    const polygons = sets.map((set) => {
+      const validated = validateSurveyWaypoints(set);
+      if (!validated.valid) throw new Error('circle invalid');
+      return validated.polygon;
+    });
+    expect(validateAffectedAreaWaypoints(polygons, sets)).toMatchObject({
+      valid: false,
+      error: { code: 'TOO_MANY_VERTICES' },
+    });
   });
 });

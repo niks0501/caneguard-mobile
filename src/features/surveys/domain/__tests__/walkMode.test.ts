@@ -2,7 +2,7 @@ import GeographicLib from 'geographiclib-geodesic/geographiclib-geodesic.min.js'
 
 import { ACCEPTABLE_GPS_ACCURACY_METERS } from '@/features/surveys/domain/boundaryQuality';
 import { ringArea, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
-import { decideFinalFix, decideMarkCorner, decideWalkFix, distanceToStart, formatWalkDistance, isBackAtStart, metersToLongitudeDegrees, pickCornerFix, refineWalkPoint, simplifyWalkSegment, tidyToleranceMeters, walkAccuracyBand } from '@/features/surveys/domain/walkMode';
+import { decideFinalFix, decideMarkCorner, decideWalkFix, distanceToStart, formatWalkDistance, isBackAtStart, metersToLongitudeDegrees, pickCornerFix, refineWalkPoint, simplifyWalkSegment, tidyToleranceMeters, WALK_AFFECTED_NEAR_START_MIN_METERS, walkAccuracyBand } from '@/features/surveys/domain/walkMode';
 
 const T = Date.UTC(2026, 10, 11, 1, 0, 0);
 const START = { latitude: 14.1, longitude: 121.1 };
@@ -152,6 +152,9 @@ describe('corners, closing the loop and the final fix', () => {
     it('needs enough points and enough ground walked', () => {
       expect(isBackAtStart(near, first, 2, 120)).toBe(false);
       expect(isBackAtStart(near, first, 6, 12)).toBe(false);
+      // Affected areas use a 15 m loop floor so compact patches unlock Finish while < 15 m still waits.
+      expect(isBackAtStart(near, first, 3, 18, WALK_AFFECTED_NEAR_START_MIN_METERS)).toBe(true);
+      expect(isBackAtStart(near, first, 3, 12, WALK_AFFECTED_NEAR_START_MIN_METERS)).toBe(false);
     });
 
     it('needs a good reading that is actually close', () => {
@@ -323,5 +326,13 @@ describe('tidying a walked line', () => {
     expect(simplifyWalkSegment(two)).toBe(two);
     const wavy = [point(0, 0), point(10, 1), point(20, 0)];
     expect(simplifyWalkSegment(wavy, 0)).toHaveLength(3);
+  });
+
+  it('never collapses a finished loop below minPoints when tidying a narrow strip', () => {
+    const narrow = [point(0, 0, 5), point(8, 2.5, 5), point(16, 2.5, 5), point(16, 0, 5)];
+    // Without minPoints (Stop), straight-line simplification drops intermediate vertices to 2.
+    expect(simplifyWalkSegment(narrow)).toHaveLength(2);
+    // With minPoints: 3 (Finish), keeps the original polygon points intact so it can still close.
+    expect(simplifyWalkSegment(narrow, undefined, { minPoints: 3 })).toEqual(narrow);
   });
 });

@@ -15,10 +15,15 @@ export function drawingToolState(input: {
   locked: boolean;
   drawingAffectedArea: boolean;
   hasSelection: boolean;
+  selectedSet?: PointRef['set'] | null;
   activeAffectedCount: number;
 }): DrawingToolState {
   if (input.locked) return 'idle';
-  if (input.hasSelection) return input.drawingAffectedArea ? 'affected.move' : 'plot.move';
+  if (input.hasSelection) {
+    if (input.selectedSet === 'plot') return 'plot.move';
+    if (input.selectedSet === 'active' || input.selectedSet === 'area') return 'affected.move';
+    return input.drawingAffectedArea ? 'affected.move' : 'plot.move';
+  }
   if (!input.drawingAffectedArea) return 'plot.add';
   return input.activeAffectedCount >= 3 ? 'affected.closable' : 'affected.add';
 }
@@ -168,6 +173,54 @@ export function dropLastPoint(shape: DrawingShape, drawingAffectedArea: boolean)
   return drawingAffectedArea
     ? { ...shape, affectedWaypoints: shape.affectedWaypoints.slice(0, -1) }
     : { ...shape, waypoints: shape.waypoints.slice(0, -1) };
+}
+
+function sameWaypoints(a: SurveyWaypoint[], b: SurveyWaypoint[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let index = 0; index < a.length; index += 1) {
+    const left = a[index];
+    const right = b[index];
+    if (left !== right && (left.latitude !== right.latitude || left.longitude !== right.longitude
+      || left.capturedAt !== right.capturedAt || left.source !== right.source || left.accuracyMeters !== right.accuracyMeters)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** True when Undo has a step it can safely revert for the active target without mutating the plot in Affected mode. */
+export function canUndoForTarget(shape: DrawingShape, history: DrawingShape[], drawingAffectedArea: boolean): boolean {
+  const previous = history.at(-1);
+  if (drawingAffectedArea) {
+    if (previous && sameWaypoints(shape.waypoints, previous.waypoints)) return true;
+    return shape.affectedWaypoints.length > 0;
+  }
+  return previous !== undefined || shape.waypoints.length > 0;
+}
+
+/**
+ * Steps back one edit for the active target. While drawing affected areas, Undo never
+ * pops history entries that would alter the measured whole-plot boundary.
+ */
+export function undoForTarget(
+  shape: DrawingShape,
+  history: DrawingShape[],
+  drawingAffectedArea: boolean,
+): { shape: DrawingShape; history: DrawingShape[] } | null {
+  const previous = history.at(-1);
+  if (drawingAffectedArea) {
+    if (previous && sameWaypoints(shape.waypoints, previous.waypoints)) {
+      return { shape: previous, history: history.slice(0, -1) };
+    }
+    if (shape.affectedWaypoints.length > 0) {
+      return { shape: dropLastPoint(shape, true), history };
+    }
+    return null;
+  }
+  if (previous) return { shape: previous, history: history.slice(0, -1) };
+  if (shape.waypoints.length > 0) return { shape: dropLastPoint(shape, false), history };
+  return null;
 }
 
 export type ValidityIssue = 'too_few_points' | 'too_many_points' | 'invalid_point' | 'crosses_itself' | 'no_area' | 'affected_outside';

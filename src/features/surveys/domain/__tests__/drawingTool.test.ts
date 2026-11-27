@@ -3,6 +3,7 @@ import {
   MAX_UNDO_STEPS,
   assessValidity,
   boundaryBadge,
+  canUndoForTarget,
   drawingToolState,
   dropLastPoint,
   edgeCount,
@@ -13,6 +14,7 @@ import {
   pushUndo,
   removeAffectedAreaAt,
   removePoint,
+  undoForTarget,
   type DrawingShape,
 } from '@/features/surveys/domain/drawingTool';
 import { validateSurveyWaypoints, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
@@ -60,6 +62,8 @@ describe('drawing tool state', () => {
     expect(drawingToolState({ ...base, hasSelection: true })).toBe('plot.move');
     expect(drawingToolState({ ...base, drawingAffectedArea: true, activeAffectedCount: 2 })).toBe('affected.add');
     expect(drawingToolState({ ...base, drawingAffectedArea: true, activeAffectedCount: 3 })).toBe('affected.closable');
+    expect(drawingToolState({ ...base, drawingAffectedArea: true, hasSelection: true, selectedSet: 'plot' })).toBe('plot.move');
+    expect(drawingToolState({ ...base, drawingAffectedArea: false, hasSelection: true, selectedSet: 'area' })).toBe('affected.move');
   });
 });
 
@@ -165,6 +169,28 @@ describe('editing points', () => {
     const shape: DrawingShape = { ...shapeWithArea(), affectedWaypoints: INSIDE.slice(0, 2) };
     expect(dropLastPoint(shape, true).affectedWaypoints).toHaveLength(1);
     expect(dropLastPoint(shape, false).waypoints).toHaveLength(3);
+  });
+
+  it('prevents Undo in Affected mode from mutating the measured whole-plot boundary', () => {
+    const plotStep1: DrawingShape = { waypoints: PLOT.slice(0, 3), affectedAreas: [], affectedAreaWaypointSets: [], affectedWaypoints: [] };
+    const plotDone: DrawingShape = { waypoints: PLOT, affectedAreas: [], affectedAreaWaypointSets: [], affectedWaypoints: [] };
+    const affStep1: DrawingShape = { ...plotDone, affectedWaypoints: INSIDE.slice(0, 1) };
+
+    // Immediately after switching to Affected area with only plot history: Undo is blocked.
+    expect(canUndoForTarget(plotDone, [plotStep1], true)).toBe(false);
+    expect(undoForTarget(plotDone, [plotStep1], true)).toBeNull();
+
+    // After adding an affected point, Undo removes the affected point and stops before touching plot history.
+    const history = [plotStep1, plotDone];
+    expect(canUndoForTarget(affStep1, history, true)).toBe(true);
+    const undone = undoForTarget(affStep1, history, true);
+    expect(undone?.shape.waypoints).toEqual(PLOT);
+    expect(undone?.shape.affectedWaypoints).toHaveLength(0);
+    expect(canUndoForTarget(undone!.shape, undone!.history, true)).toBe(false);
+
+    // Switching back to Whole plot keeps plot Undo working.
+    expect(canUndoForTarget(undone!.shape, undone!.history, false)).toBe(true);
+    expect(undoForTarget(undone!.shape, undone!.history, false)?.shape.waypoints).toHaveLength(3);
   });
 });
 

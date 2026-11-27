@@ -114,6 +114,8 @@ const WALK_CORNER_SAME_SPOT_METERS = 1.5;
 /** "Back at start" needs a real loop, not a walker who has barely left the first point. */
 export const WALK_NEAR_START_MIN_POINTS = 3;
 export const WALK_NEAR_START_MIN_METERS = 30;
+/** Affected patches inside a plot can be smaller than a whole field; 15 m still requires a real loop. */
+export const WALK_AFFECTED_NEAR_START_MIN_METERS = 15;
 /** A final reading older than this no longer says where the walker stopped. */
 const WALK_FINAL_FIX_MAX_AGE_MS = 10_000;
 const WALK_FINAL_MIN_SPACING_METERS = 3;
@@ -161,9 +163,15 @@ export function decideMarkCorner(recent: WalkFix[], previous: SurveyWaypoint | n
 }
 
 /** True once the walker has looped back to the first point after a real walk. */
-export function isBackAtStart(fix: WalkFix, first: MapCoordinate | null, pointCount: number, walkedMeters: number): boolean {
+export function isBackAtStart(
+  fix: WalkFix,
+  first: MapCoordinate | null,
+  pointCount: number,
+  walkedMeters: number,
+  minMeters = WALK_NEAR_START_MIN_METERS,
+): boolean {
   if (!first || !isUsableFix(fix)) return false;
-  if (pointCount < WALK_NEAR_START_MIN_POINTS || walkedMeters < WALK_NEAR_START_MIN_METERS) return false;
+  if (pointCount < WALK_NEAR_START_MIN_POINTS || walkedMeters < minMeters) return false;
   return distanceMeters(first, fix) <= Math.max(ACCEPTABLE_GPS_ACCURACY_METERS, fix.accuracy as number);
 }
 
@@ -236,9 +244,14 @@ export function tidyToleranceMeters(points: SurveyWaypoint[]): number {
 
 /**
  * Drops points that sit within the tolerance of a straight edge (Douglas–Peucker). The ends and every
- * marked corner always stay, so a walker's deliberate corners are never smoothed away.
+ * marked corner always stay, so a walker's deliberate corners are never smoothed away. When `minPoints`
+ * is set (e.g. closing a finished loop), returns the original points rather than collapsing below it.
  */
-export function simplifyWalkSegment(points: SurveyWaypoint[], toleranceMeters = tidyToleranceMeters(points)): SurveyWaypoint[] {
+export function simplifyWalkSegment(
+  points: SurveyWaypoint[],
+  toleranceMeters = tidyToleranceMeters(points),
+  options?: { minPoints?: number },
+): SurveyWaypoint[] {
   if (points.length < 3) return points;
   const origin = points[0];
   const flat = points.map((point) => toLocalMeters(point, origin));
@@ -266,5 +279,7 @@ export function simplifyWalkSegment(points: SurveyWaypoint[], toleranceMeters = 
       stack.push([from, worst], [worst, to]);
     }
   }
-  return points.filter((_, index) => keep[index]);
+  const simplified = points.filter((_, index) => keep[index]);
+  if (options?.minPoints && simplified.length < options.minPoints) return points;
+  return simplified;
 }

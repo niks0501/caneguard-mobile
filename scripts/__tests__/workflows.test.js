@@ -33,10 +33,10 @@ describe("GitHub Actions workflow triggers and safety gates", () => {
     expect(pullRequestBlock).not.toMatch(/\n\s+branches(-ignore)?:/);
     expect(pullRequestBlock).not.toMatch(/\n\s+paths(-ignore)?:/);
     expect(onBlock).toMatch(/\n\s+push:\s*\n\s+branches:\s*\n\s+- main\b/);
+    expect(onBlock).toMatch(/\n  workflow_call:/);
 
-    expect(verify).toMatch(
-      /group: \$\{\{ github\.workflow \}\}-\$\{\{ github\.event\.pull_request\.number \|\| github\.ref \}\}/,
-    );
+    expect(verify).toContain("format('dispatch-{0}', github.run_id)");
+    expect(verify).toContain("github.event.pull_request.number || github.ref");
     expect(verify).toMatch(/cancel-in-progress: true/);
 
     const verifyJobStart = verify.indexOf("\n  verify:");
@@ -47,6 +47,11 @@ describe("GitHub Actions workflow triggers and safety gates", () => {
     const verifyJobBlock = verify.slice(verifyJobStart, versionGuardStart);
     expect(verifyJobBlock).not.toMatch(/\n\s+if:/);
     expect(verifyJobBlock).not.toMatch(/\n\s+continue-on-error:/);
+    expect(verifyJobBlock).toContain("refs/heads/main");
+    expect(verifyJobBlock).toContain("npm run verify:fast");
+    expect(verifyJobBlock).toContain("python3 scripts/tests/test_guard_v1_model.py");
+    expect(verifyJobBlock).toContain("EXPO_NO_DOTENV: '1'");
+    expect(verifyJobBlock).toContain("expo export --platform android");
 
     const versionGuardBlock = verify.slice(versionGuardStart);
     expect(versionGuardBlock).toMatch(/\n\s+if: github\.event_name == 'pull_request'/);
@@ -61,8 +66,12 @@ describe("GitHub Actions workflow triggers and safety gates", () => {
       expect(onBlock).toMatch(/\n\s+workflow_dispatch:/);
       expect(onBlock).not.toMatch(/\n\s+pull_request(_target)?:/);
       expect(onBlock).not.toMatch(/\n\s+push:/);
-      expect(source).toMatch(/refs\/heads\/main/);
       expect(source).toMatch(/cancel-in-progress: false/);
+      expect(source).toMatch(/\n  verify:[\s\S]*?\n    uses: \.\/\.github\/workflows\/verify\.yml/);
+      expect(source).toMatch(/\n  (build|publish):\s*\n    needs: verify/);
+      expect(source).not.toContain("npm run verify:fast");
     }
+    expect(readWorkflow("update.yml")).toContain("if: needs.classify.outputs.publish == 'true'");
+    expect(readWorkflow("build.yml")).toMatch(/\npermissions:\s*\n  contents: read/);
   });
 });

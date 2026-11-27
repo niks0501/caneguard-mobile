@@ -23,15 +23,20 @@ on:
           - major
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: mobile-build-${{ inputs.lane }}
   cancel-in-progress: false
 
 jobs:
+  verify:
+    uses: ./.github/workflows/verify.yml
+
   build:
-    if: github.event_name == 'workflow_dispatch'
+    needs: verify
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -49,16 +54,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run free verification lane
-        run: npm run verify:fast
-
-      - name: Require dispatch from main
-        run: |
-          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
-            echo "Mobile builds must be dispatched from main; received $GITHUB_REF." >&2
-            exit 1
-          fi
-
       - name: Check production EAS environment
         if: inputs.lane == 'production'
         env:
@@ -70,32 +65,41 @@ jobs:
         if: inputs.lane == 'production'
         run: git push --dry-run origin HEAD:main
 
-      - name: Bump version and create release commit and tag
-        if: inputs.lane == 'production'
+      - name: Bump version and push the version-only release commit
+        if: inputs.lane != 'qa'
         env:
           BUMP: ${{ inputs.bump }}
+          LANE: ${{ inputs.lane }}
         run: |
           node scripts/bump-version.js "$BUMP"
-          VERSION="$(node -p "require('./app.json').expo.version")"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app.json package.json
-          git commit -m "chore(release): v$VERSION"
-          git tag -a "v$VERSION" -m "v$VERSION"
-          git push origin HEAD:main --follow-tags
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const { execFileSync } = require('node:child_process');
+          const { readFileSync } = require('node:fs');
+          const git = (...args) => execFileSync('git', args, { encoding: 'utf8' });
+          const expectedFiles = ['app.json', 'package.json'];
+          const changedFiles = git('diff', '--name-only', 'HEAD').trim().split('\n').sort();
+          assert.deepEqual(changedFiles, expectedFiles, 'Release bump must only change the version manifests');
 
-      - name: Bump version and create development/preview release commit
-        if: inputs.lane == 'development' || inputs.lane == 'preview'
-        env:
-          BUMP: ${{ inputs.bump }}
-        run: |
-          node scripts/bump-version.js "$BUMP"
+          const [app, pkg] = expectedFiles.map((file) => JSON.parse(readFileSync(file, 'utf8')));
+          const [baseApp, basePackage] = expectedFiles.map((file) => JSON.parse(git('show', `HEAD:${file}`)));
+          assert.match(app.expo.version, /^\d+\.\d+\.\d+$/);
+          assert.equal(app.expo.version, pkg.version, 'Release versions must agree');
+          assert.notEqual(app.expo.version, baseApp.expo.version, 'The release version must change');
+          assert.deepEqual(app, { ...baseApp, expo: { ...baseApp.expo, version: app.expo.version } });
+          assert.deepEqual(pkg, { ...basePackage, version: pkg.version });
+          NODE
           VERSION="$(node -p "require('./app.json').expo.version")"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app.json package.json
           git commit -m "chore(release): v$VERSION"
-          git push origin HEAD:main
+          if [ "$LANE" = "production" ]; then
+            git tag -a "v$VERSION" -m "v$VERSION"
+            git push --atomic origin HEAD:main "refs/tags/v$VERSION"
+          else
+            git push origin HEAD:main
+          fi
 
       - name: Build development client Android APK
         if: inputs.lane == 'development'
@@ -119,7 +123,8 @@ jobs:
         if: inputs.lane == 'production'
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: npx --yes eas-cli@25.3.0 env:exec production 'EXPO_NO_DOTENV=1 eas build --platform android --profile production --non-interactive --wait --json > "$RUNNER_TEMP/eas-build.json"'
+        run: |
+          npx --yes eas-cli@25.3.0 env:exec production "EXPO_NO_DOTENV=1 eas build --platform android --profile production --non-interactive --wait --json > \"$RUNNER_TEMP/eas-build.json\""
 
       - name: Prove production APK is finished and installable
         if: inputs.lane == 'production'

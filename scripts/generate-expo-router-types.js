@@ -13,11 +13,13 @@ if (!fs.existsSync(routeGenerationModule)) {
 }
 
 const { setupTypedRoutes } = require(routeGenerationModule);
+const typesDirectory = path.join(projectRoot, '.expo/types');
+fs.mkdirSync(typesDirectory, { recursive: true });
 
 setupTypedRoutes({
   projectRoot,
   routerDirectory: path.join(projectRoot, 'src/app'),
-  typesDirectory: path.join(projectRoot, '.expo/types'),
+  typesDirectory,
 }).catch((error) => {
   console.error(error);
   process.exitCode = 1;

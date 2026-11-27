@@ -78,33 +78,12 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Reject direct app-version edits
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Validate app version changes
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          git show "$BASE_SHA:app.json" > "$RUNNER_TEMP/base-app.json"
-          git show "$BASE_SHA:package.json" > "$RUNNER_TEMP/base-package.json"
-          node <<'NODE'
-          const fs = require('node:fs');
-          const baseApp = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/base-app.json', 'utf8'));
-          const basePackage = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/base-package.json', 'utf8'));
-          const app = JSON.parse(fs.readFileSync('app.json', 'utf8'));
-          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-          // One-time exception for the Expo SDK 58 upgrade: the app moves onto a
-          // new appVersion-based runtime, so that single PR must bump the app
-          // version 1.1.1 -> 1.2.0 while expo goes 57 -> 58. Any other version
-          // edit still fails.
-          const expoMajor = (manifest) => {
-            const major = Number(String(manifest.dependencies?.expo ?? '').match(/\d+/)?.[0]);
-            return Number.isSafeInteger(major) ? major : null;
-          };
-          const versionChanged = app.expo?.version !== baseApp.expo?.version || pkg.version !== basePackage.version;
-          const sdk58Upgrade =
-            expoMajor(basePackage) === 57 && expoMajor(pkg) === 58 &&
-            baseApp.expo?.version === '1.1.1' && app.expo?.version === '1.2.0' &&
-            basePackage.version === '1.1.1' && pkg.version === '1.2.0';
-          if (versionChanged && !sdk58Upgrade) {
-            console.error('Pull requests may not edit app.json expo.version or package.json version, except the one-time Expo SDK 58 upgrade (expo 57 -> 58, version 1.1.1 -> 1.2.0). Use the manual Mobile build workflow to release a version.');
-            process.exit(1);
-          }
-          NODE
+        run: node scripts/version-guard.js

@@ -306,7 +306,7 @@ Production builds (`EAS_BUILD_PROFILE=production`) fail in `eas-build-pre-instal
 - `EXPO_PUBLIC_SENTRY_DSN`: a valid Sentry DSN.
 - `SENTRY_ORG`, `SENTRY_PROJECT`, and the secret `SENTRY_AUTH_TOKEN`: source map and native symbol upload. `app.config.js` also refuses to resolve a production config without them.
 
-The manual production build workflow also requires `EXPO_PUBLIC_AUTH_LINK_HOST` in the `production` EAS environment before it bumps the version, because release builds register verified HTTPS App Links.
+To increment the app version for a build lane, create a release branch from `main`, run `node scripts/bump-version.js <patch|minor|major>` so only `app.json` (`expo.version`) and `package.json` (`version`) change, and merge that version-only pull request through GitHub Actions (`Fast verification` and `Protect app version`). The manual `Mobile build` workflow also requires `EXPO_PUBLIC_AUTH_LINK_HOST` in the `production` EAS environment (release builds register verified HTTPS App Links), validates that `expected_sha` matches the dispatched `main` commit with a green `Verify` run, records the source SHA and EAS build ID together, and tags `v<version>` on `main` only after a `production` build and APK smoke check succeed.
 
 Crash reports carry the build profile (or `EXPO_PUBLIC_APP_ENVIRONMENT` for updates) as the Sentry `environment`. `npm run release:preflight` runs the same gate against the current shell environment, upload credentials included; the build and OTA preflights pass `--skip-upload`.
 

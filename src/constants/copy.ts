@@ -221,7 +221,15 @@ export const FIELD_SURVEY_COPY = {
   walkFinished: (count: number) => `Walk finished. ${count} ${count === 1 ? 'point' : 'points'} added; the boundary closes back to the start.`,
   walkActive: 'Walking: a point is added about every 8 m once GPS is within ±10 m. Keep the phone out in the open and stop at the starting corner.',
   walkWeakSignal: 'Waiting for a stronger GPS signal (within ±10 m). Move to open sky and keep walking.',
-  affectedAreaStillOpen: 'The affected area is not closed yet, so it is not measured. Open More and tap Finish area.',
+  affectedAreaStillOpen: 'The affected area is not closed yet, so it is not measured. Tap Finish area below.',
+  affectedAreaClosed: 'Affected area closed and measured.',
+  affectedAreaTooFewToClose: 'Walk stopped with fewer than 3 affected-area points. Add points or walk the affected area again, then tap Finish area.',
+  plotRequiredForAffected: 'Complete the whole plot first (at least 3 points) before finishing an affected area.',
+  completedPlotAffectedTitle: 'Measure affected areas on this plot',
+  completedPlotAffectedBody: (hectares: string) =>
+    `Starts a new draft keeping your ${hectares} ha plot outline intact, without changing the saved record.`,
+  completedPlotAffectedAction: 'Measure affected area from this plot',
+  completedPlotAffectedStarted: 'Kept your plot outline in a new draft. Tap or walk the affected area now.',
   affectedAreaOpenOnReport: 'The affected area on the map is not closed, so the % affected was not filled in. Open the map and tap Finish area.',
   affectedAreaOutsidePlot: (count: number, meters: number) =>
     `${count} ${count === 1 ? 'point is' : 'points are'} up to ${Math.max(1, Math.round(meters))} m outside the plot. Move ${count === 1 ? 'it' : 'them'} inside the plot, or walk the area again.`,

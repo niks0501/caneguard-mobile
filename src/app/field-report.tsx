@@ -54,6 +54,7 @@ import type { FieldSurveyRow } from '@/database/schema';
 import { CHECKLIST_OBSERVATIONS } from '@/features/detection/checklist/checklistConsistency';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { findOwnedFieldSurvey, listOwnedFieldSurveys } from '@/features/surveys/data/fieldSurveyRepository';
+import { consumeReplacedReportSurvey } from '@/features/surveys/services/reportSurveyHandoff';
 import {
   hasOpenAffectedArea,
   measuredBoundaryArea,
@@ -817,17 +818,22 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       const trip = measureTripRef.current;
       measureTripRef.current = null;
       if (!trip || !user) return;
+      const replacedUuid = consumeReplacedReportSurvey(trip.clientUuid);
+      const activeClientUuid = replacedUuid ?? trip.clientUuid;
       let row: FieldSurveyRow | null = null;
       try {
-        row = findOwnedFieldSurvey(database, trip.clientUuid, user.uuid);
+        row = findOwnedFieldSurvey(database, activeClientUuid, user.uuid);
       } catch {
         row = null;
       }
       if (!row) {
-        if (trip.created && attachedSurveyUuid === trip.clientUuid) {
+        if (!replacedUuid && trip.created && attachedSurveyUuid === trip.clientUuid) {
           setPendingUnlinkUuid(trip.clientUuid);
         }
         return;
+      }
+      if (replacedUuid) {
+        void report.save({ fieldSurveyClientUuid: replacedUuid });
       }
       const measured = measuredBoundaryArea(row);
       if (!measured) {

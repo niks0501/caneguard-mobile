@@ -17,6 +17,7 @@ import type { FieldSurveyRow } from '@/database/schema';
 import { validateSurveyWaypoints, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { fetchAssignmentFieldMap } from '@/features/surveys/api/fieldSurveysApi';
 import { captureSurveyWaypoint } from '@/features/surveys/services/captureSurveyWaypoint';
+import { clearReplacedReportSurveys, consumeReplacedReportSurvey } from '@/features/surveys/services/reportSurveyHandoff';
 import { FIELD_SURVEY_SYNC_COPY } from '@/features/sync/utils/syncStatusCopy';
 
 // The map is full height; affected areas, GPS capture and the point lists sit behind More.
@@ -967,5 +968,122 @@ describe('drawing tool (phone)', () => {
     const row = await screen.findByText(/^Area 1 · /);
     const shownSqm = Number(String(row.props.children).replace(/^Area 1 · /, '').replace(/[^\d.]/g, ''));
     expect(shownSqm).toBeGreaterThan(0);
+  });
+});
+
+describe('completed whole-plot transition & recovery', () => {
+  beforeEach(() => {
+    clearReplacedReportSurveys();
+  });
+
+  it('transitions from a sent whole-plot survey to a new affected-area draft in one tap without mutating the synced record', async () => {
+    const synced = draftRow({
+      clientUuid: 'sent-plot-uuid',
+      status: 'synced',
+      remoteId: 'remote-42',
+      label: 'East lot',
+    });
+    mockFindSurvey.mockReturnValue(synced);
+    mockUseLocalSearchParams.mockReturnValue({ surveyId: synced.clientUuid });
+
+    await renderOpen();
+    await waitFor(() => expect(screen.getByTestId('field-survey.measure-affected-from-plot')).toBeTruthy());
+    expect(mockSaveDraft).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('field-survey.measure-affected-from-plot.action'));
+    });
+
+    await waitFor(() => expect(mockSaveDraft).toHaveBeenCalled());
+    const saved = mockSaveDraft.mock.lastCall?.[1];
+    expect(saved?.clientUuid).toBe('3f1de2d8-2ca9-4c26-9e37-2f4c5f6f7a10');
+    expect(saved?.clientUuid).not.toBe('sent-plot-uuid');
+    expect(saved?.outlineFromRemoteId).toBe('remote-42');
+    expect(saved?.label).toBe('East lot');
+    expect(saved?.waypoints).toEqual(PLOT_WAYPOINTS);
+    expect(saved?.affectedAreaPolygons).toEqual([]);
+    expect(screen.queryByTestId('field-survey.measure-affected-from-plot')).toBeNull();
+    expect(screen.getByTestId('field-survey.tool-state').props.accessibilityValue.text).toBe('tool=affected.add');
+    expect(screen.getByTestId('field-survey.feedback')).toHaveTextContent(FIELD_SURVEY_COPY.completedPlotAffectedStarted);
+    expect(screen.queryByTestId('field-survey.point.plot.0')).toBeNull();
+  });
+
+  it('also transitions from a waiting_to_send (pending) whole-plot survey in one tap', async () => {
+    const pending = draftRow({
+      clientUuid: 'pending-plot-uuid',
+      status: 'pending',
+      remoteId: null,
+      outlineFromRemoteId: 'orig-9',
+      label: 'West lot',
+    });
+    mockFindSurvey.mockReturnValue(pending);
+    mockUseLocalSearchParams.mockReturnValue({ surveyId: pending.clientUuid });
+
+    await renderOpen();
+    await waitFor(() => expect(screen.getByTestId('field-survey.measure-affected-from-plot.action')).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('field-survey.measure-affected-from-plot.action'));
+    });
+
+    await waitFor(() => expect(mockSaveDraft).toHaveBeenCalled());
+    const saved = mockSaveDraft.mock.lastCall?.[1];
+    expect(saved?.clientUuid).toBe('3f1de2d8-2ca9-4c26-9e37-2f4c5f6f7a10');
+    expect(saved?.outlineFromRemoteId).toBe('orig-9');
+    expect(saved?.waypoints).toEqual(PLOT_WAYPOINTS);
+    expect(screen.getByTestId('field-survey.tool-state').props.accessibilityValue.text).toBe('tool=affected.add');
+  });
+
+  it('records a replacement handoff for Field Report when transitioning from a completed plot in forReport mode', async () => {
+    const synced = draftRow({
+      clientUuid: 'sent-plot-uuid',
+      status: 'synced',
+      remoteId: 'remote-42',
+    });
+    mockFindSurvey.mockReturnValue(synced);
+    mockUseLocalSearchParams.mockReturnValue({ surveyId: synced.clientUuid, forReport: '1' });
+
+    await renderOpen();
+    await waitFor(() => expect(screen.getByTestId('field-survey.measure-affected-from-plot.action')).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('field-survey.measure-affected-from-plot.action'));
+    });
+
+    await waitFor(() => expect(mockSaveDraft).toHaveBeenCalled());
+    expect(consumeReplacedReportSurvey('sent-plot-uuid')).toBe('3f1de2d8-2ca9-4c26-9e37-2f4c5f6f7a10');
+  });
+
+  it('keeps the Save failed retry action visible in forReport mode when draft autosave fails', async () => {
+    mockUseLocalSearchParams.mockReturnValue({ surveyId: 'report-map-1', forReport: '1' });
+    mockSaveDraft.mockRejectedValueOnce(new Error('disk full'));
+
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(screen.getByTestId('field-survey.report-unfinished')).toBeTruthy());
+
+    await pressMap(100, 100);
+    await waitFor(() => expect(screen.getByTestId('field-survey.save-failed')).toBeTruthy());
+    expect(screen.queryByTestId('field-survey.report-unfinished')).toBeNull();
+
+    mockSaveDraft.mockResolvedValueOnce(draftRow({ clientUuid: 'report-map-1' }));
+    await fireEvent.press(screen.getByTestId('field-survey.save-failed'));
+    await waitFor(() => expect(screen.queryByTestId('field-survey.save-failed')).toBeNull());
+  });
+
+  it('resets the drawing target back to Whole plot when Start a new field map is pressed', async () => {
+    mockListSurveys.mockReturnValue([draftRow({
+      activeAffectedWaypointsJson: JSON.stringify(ACTIVE_AFFECTED_WAYPOINTS),
+    })]);
+
+    await renderOpen();
+    await waitFor(() => expect(screen.getByTestId('field-survey.finish-area')).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.newSurvey));
+    });
+
+    await waitFor(() => expect(screen.queryByTestId('field-survey.finish-area')).toBeNull());
+    expect(screen.getByTestId('field-survey.target-plot').props.accessibilityState.selected).toBe(true);
+    expect(screen.queryByTestId('field-survey.feedback')).toBeNull();
   });
 });

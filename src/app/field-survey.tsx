@@ -42,15 +42,15 @@ import { FIELD_NAME_MAX_LENGTH, findOwnedFieldSurvey, listEarlierMapRows, listOw
 import { viewportPointFromPressEvent } from '@/features/reports/components/online-map-picker';
 import { useManualMapGestures } from '@/features/reports/components/use-manual-map-gestures';
 import { useTileSources } from '@/features/reports/tiles/useTileSources';
-import { describeOutsidePlot, measureAffectedAreas, snapAffectedAreaWaypoints, validateSurveyPolygon, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+import { describeOutsidePlot, measureAffectedAreas, snapAffectedAreaWaypoints, validateAffectedAreaWaypoints, validateSurveyPolygon, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { LOADING_SCREEN, NEW_BOUNDARY_SCREEN, screenCanEdit, screenCanSubmit, screenIsStoredOrMissing, screenNeedsFreshIdentity, screenStateForRow, statusStripFor, WAITING_TO_SEND_SCREEN, type ScreenState } from '@/features/surveys/domain/screenMode';
 import { FIELD_SURVEY_SYNC_COPY, SYNC_TONE_COLOR } from '@/features/sync/utils/syncStatusCopy';
 import { assessBoundaryQuality } from '@/features/surveys/domain/boundaryQuality';
 import {
   assessValidity,
   boundaryBadge,
+  canUndoForTarget,
   drawingToolState,
-  dropLastPoint,
   edgeCount,
   insertPointOnEdge,
   movePoint,
@@ -61,14 +61,16 @@ import {
   removePoint,
   replacePoint,
   sameRef,
+  undoForTarget,
   type DrawingShape,
   type EditResult,
   type PointQuality,
   type PointRef,
 } from '@/features/surveys/domain/drawingTool';
 import { captureSurveyWaypoint } from '@/features/surveys/services/captureSurveyWaypoint';
-import { decideFinalFix, decideMarkCorner, decideWalkFix, distanceMeters, distanceToStart, formatWalkDistance, isBackAtStart, metersToLongitudeDegrees, refineWalkPoint, simplifyWalkSegment, WALK_CORNER_WINDOW_MS, walkAccuracyBand, type WalkFix, type WalkFixMark } from '@/features/surveys/domain/walkMode';
+import { decideFinalFix, decideMarkCorner, decideWalkFix, distanceMeters, distanceToStart, formatWalkDistance, isBackAtStart, metersToLongitudeDegrees, refineWalkPoint, simplifyWalkSegment, WALK_AFFECTED_NEAR_START_MIN_METERS, WALK_CORNER_WINDOW_MS, WALK_NEAR_START_MIN_METERS, walkAccuracyBand, type WalkFix, type WalkFixMark } from '@/features/surveys/domain/walkMode';
 import { expoWalkLocationClient } from '@/features/surveys/services/expoWalkLocationClient';
+import { recordReplacedReportSurvey } from '@/features/surveys/services/reportSurveyHandoff';
 import { holdScreenAwake, releaseScreenAwake, walkHaptic } from '@/features/surveys/services/walkComfort';
 import { markWalkGuideSeen, shouldShowWalkGuide } from '@/features/surveys/services/walkGuideStore';
 import { startWalk } from '@/features/surveys/services/walkSurveyBoundary';
@@ -110,6 +112,13 @@ function qualityColor(quality: PointQuality, theme: ReturnType<typeof useTheme>)
   if (quality === 'acceptable') return { fill: theme.warning, stroke: 'white' };
   if (quality === 'weak') return { fill: 'white', stroke: theme.danger };
   return { fill: theme.textSecondary, stroke: 'white' };
+}
+
+function feedbackColors(tone: MapFeedback['tone'], theme: ReturnType<typeof useTheme>): { bg: string; border: string; text: string } {
+  if (tone === 'danger') return { bg: theme.dangerBg, border: theme.danger, text: theme.danger };
+  if (tone === 'warning') return { bg: theme.warningBg, border: theme.warning, text: theme.warning };
+  if (tone === 'success') return { bg: theme.successBg, border: theme.success, text: theme.success };
+  return { bg: theme.infoBg, border: theme.info, text: theme.info };
 }
 
 // A round 48pt map control: big enough for a gloved thumb, no text to crowd the map.
@@ -171,6 +180,8 @@ function PointHandle(props: PointHandleProps) {
 }
 
 type SaveState = 'saved' | 'unsaved' | 'saving' | 'failed';
+type FeedbackTone = 'danger' | 'warning' | 'success' | 'info';
+type MapFeedback = { tone: FeedbackTone; text: string };
 
 type StoredSurveyRow = Parameters<typeof screenStateForRow>[0] & { fieldErrorsJson: string | null };
 
@@ -257,6 +268,8 @@ export default function FieldSurveyScreen() {
   const [label, setLabel] = useState('');
   // The earlier map this plot outline started from; sent as provenance only.
   const [outlineFromRemoteId, setOutlineFromRemoteId] = useState<string | null>(null);
+  // The server id of the currently loaded map itself (when synced), carried as outline provenance if cloned.
+  const [storedRemoteId, setStoredRemoteId] = useState<string | null>(null);
   // "Walk it again" was chosen for the location the inspector is standing at.
   const [measuredBeforeDismissed, setMeasuredBeforeDismissed] = useState(false);
   // Full-screen map: the header, details and dock step aside so the plot has the whole screen.
@@ -321,6 +334,8 @@ export default function FieldSurveyScreen() {
   // The latest reading, accepted or not, drives the you-are-here dot and the readout; the boundary only holds accepted points.
   const [walkLive, setWalkLive] = useState<{ fix: WalkFix; walkedMeters: number; toStartMeters: number | null } | null>(null);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  // Severity-styled validation/action notice rendered on the map overlay in BOTH normal and expanded modes.
+  const [mapFeedback, setMapFeedback] = useState<MapFeedback | null>(null);
   // Walk status shown on the map pill; syncMessage alone lives inside the collapsed More panel, so walk feedback was invisible.
   const [walkNotice, setWalkNotice] = useState<string | null>(null);
   // For a few seconds after the walker presses Stop, the Walk button offers to resume the same walk.
@@ -351,6 +366,7 @@ export default function FieldSurveyScreen() {
   // The one place a stored row becomes the mode and the correction messages on screen.
   const showStoredRow = useCallback((row: StoredSurveyRow | null, next: ScreenState): ScreenState => {
     setScreenState(next);
+    setStoredRemoteId(row?.remoteId ?? null);
     setFieldErrors(row ? parseFieldErrors(row.fieldErrorsJson) : {});
     return next;
   }, []);
@@ -400,6 +416,7 @@ export default function FieldSurveyScreen() {
       drag.changed = false;
     }
     markEdited();
+    setMapFeedback(null);
     setShape(next);
   }, [markEdited, setShape]);
   const stopWalk = useCallback((message?: string | null, resume?: 'brief' | 'lasting') => {
@@ -461,6 +478,10 @@ export default function FieldSurveyScreen() {
     submitRejectionRef.current = null;
     setSyncMessage((current) => (current === rejection ? null : current));
   }, [affectedMeasurement]);
+  // Clear the "complete whole plot first" warning as soon as the plot becomes valid (derived, no effect cascade).
+  const activeMapFeedback = mapFeedback?.text === FIELD_SURVEY_COPY.plotRequiredForAffected && validation.valid
+    ? null
+    : mapFeedback;
   const tileTemplate = getConfiguredMapTileUrlTemplate();
   const tiles = useMemo(() => getMapTiles(
     center,
@@ -537,29 +558,35 @@ export default function FieldSurveyScreen() {
 
   // Autosave: an edit makes it unsaved, the write makes it saving, then saved or failed. Only an edited, editable screen writes.
   const loaded = mode !== 'loading';
+  const editable = !controlsLocked;
   useEffect(() => {
-    if (!canAuthorSurvey || !loaded || !hasEdited || !ready || !database || !session?.user.uuid || !liveFormRef.current.editable) return;
+    if (!canAuthorSurvey || !loaded || !hasEdited || !ready || !database || !session?.user.uuid || !editable) return;
     let cancelled = false;
-    setSaveState('saving');
-    void saveFieldSurveyDraft(database, {
-      clientUuid,
-      ownerIdentity: session.user.uuid,
-      authorRole: session.user.role,
-      districtCode: districtCode.trim() || 'UNSPECIFIED',
-      label,
-      outlineFromRemoteId,
-      waypoints,
-      affectedAreaPolygons: affectedAreas,
-      affectedAreaWaypoints: affectedAreaWaypointSets,
-      activeAffectedWaypoints: affectedWaypoints,
-      capturedAt: new Date().toISOString(),
+    let started = false;
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      started = true;
+      setSaveState('saving');
+      return saveFieldSurveyDraft(database, {
+        clientUuid,
+        ownerIdentity: session.user.uuid,
+        authorRole: session.user.role,
+        districtCode: districtCode.trim() || 'UNSPECIFIED',
+        label,
+        outlineFromRemoteId,
+        waypoints,
+        affectedAreaPolygons: affectedAreas,
+        affectedAreaWaypoints: affectedAreaWaypointSets,
+        activeAffectedWaypoints: affectedWaypoints,
+        capturedAt: new Date().toISOString(),
+      });
     }).then(() => {
-      if (!cancelled) setSaveState('saved');
+      if (!cancelled && started) setSaveState('saved');
     }).catch(() => {
       if (!cancelled) setSaveState('failed');
     });
     return () => { cancelled = true; };
-  }, [affectedAreas, affectedAreaWaypointSets, affectedWaypoints, canAuthorSurvey, clientUuid, database, districtCode, hasEdited, label, loaded, outlineFromRemoteId, ready, saveAttempt, session?.user.role, session?.user.uuid, waypoints]);
+  }, [affectedAreas, affectedAreaWaypointSets, affectedWaypoints, canAuthorSurvey, clientUuid, database, districtCode, editable, hasEdited, label, loaded, outlineFromRemoteId, ready, saveAttempt, session?.user.role, session?.user.uuid, waypoints]);
 
   function captureTargetForNewPoint(): WaypointCaptureTarget {
     const replace = selected ? pointOf(shapeRef.current, selected) : null;
@@ -587,7 +614,9 @@ export default function FieldSurveyScreen() {
       if (!ref) return { ok: false, message: '' };
       const result = replacePoint(current, ref, waypoint);
       if (!result.ok) {
-        setSyncMessage(result.message || FIELD_SURVEY_COPY.moveRefused);
+        const rejection = result.message || FIELD_SURVEY_COPY.moveRefused;
+        setSyncMessage(rejection);
+        setMapFeedback({ tone: 'danger', text: rejection });
         return result;
       }
       commitShape(result.shape);
@@ -644,7 +673,9 @@ export default function FieldSurveyScreen() {
         setSelected(null);
         setFieldErrors({});
       } else {
-        setSyncMessage(result.message || FIELD_SURVEY_COPY.moveRefused);
+        const rejection = result.message || FIELD_SURVEY_COPY.moveRefused;
+        setSyncMessage(rejection);
+        setMapFeedback({ tone: 'danger', text: rejection });
       }
       return;
     }
@@ -661,7 +692,9 @@ export default function FieldSurveyScreen() {
         setSelected(null);
         setFieldErrors({});
       } else {
-        setSyncMessage(result.message || FIELD_SURVEY_COPY.moveRefused);
+        const rejection = result.message || FIELD_SURVEY_COPY.moveRefused;
+        setSyncMessage(rejection);
+        setMapFeedback({ tone: 'danger', text: rejection });
       }
       return;
     }
@@ -722,7 +755,10 @@ export default function FieldSurveyScreen() {
     dragRef.current = null;
     if (!drag) return;
     if (!drag.changed) {
-      if (drag.refused) setSyncMessage(FIELD_SURVEY_COPY.moveRefused);
+      if (drag.refused) {
+        setSyncMessage(FIELD_SURVEY_COPY.moveRefused);
+        setMapFeedback({ tone: 'danger', text: FIELD_SURVEY_COPY.moveRefused });
+      }
       return;
     }
     const undoBase = drag.undoBase;
@@ -730,14 +766,22 @@ export default function FieldSurveyScreen() {
     markEdited();
     setSelected(drag.ref);
     setFieldErrors({});
-    if (drag.refused) setSyncMessage(FIELD_SURVEY_COPY.moveRefused);
+    if (drag.refused) {
+      setSyncMessage(FIELD_SURVEY_COPY.moveRefused);
+      setMapFeedback({ tone: 'danger', text: FIELD_SURVEY_COPY.moveRefused });
+    } else {
+      setMapFeedback(null);
+    }
   }
 
   function insertAfter(ref: PointRef, edge: number) {
     if (controlsLocked) return;
     const result = insertPointOnEdge(shape, ref, edge);
     if (!result.ok) {
-      if (result.message) setSyncMessage(result.message);
+      if (result.message) {
+        setSyncMessage(result.message);
+        setMapFeedback({ tone: 'danger', text: result.message });
+      }
       return;
     }
     commitShape(result.shape);
@@ -746,16 +790,13 @@ export default function FieldSurveyScreen() {
 
   function undoLast() {
     if (controlsLocked) return;
+    const undone = undoForTarget(shapeRef.current, history, drawingAffectedArea);
+    if (!undone) return;
     markEdited();
     setSelected(null);
-    const previous = history.at(-1);
-    if (previous) {
-      setHistory((current) => current.slice(0, -1));
-      setShape(previous);
-      return;
-    }
-    // A restored draft has no history yet: step back one point of the active tool.
-    setShape(dropLastPoint(shapeRef.current, drawingAffectedArea));
+    setMapFeedback(null);
+    setHistory(undone.history);
+    setShape(undone.shape);
   }
 
   function removeAreaAt(area: number) {
@@ -847,18 +888,21 @@ export default function FieldSurveyScreen() {
         && lastPoint.latitude === walk.refine.waypoint.latitude && lastPoint.longitude === walk.refine.waypoint.longitude) {
         const better = refineWalkPoint(lastPoint, fix, walk.refine.readings);
         if (better) {
+          const plot = walk.affectedArea ? validateSurveyWaypoints(live.waypoints) : null;
+          const nextPoint = plot?.valid ? snapAffectedAreaWaypoints(plot.polygon, [better])[0] : better;
           const key = walk.affectedArea ? 'affectedWaypoints' : 'waypoints';
-          setShape({ ...live, [key]: [...target.slice(0, -1), better] });
+          setShape({ ...live, [key]: [...target.slice(0, -1), nextPoint] });
           markEdited();
-          walk.last = better;
-          walk.refine = { waypoint: better, readings: walk.refine.readings };
+          walk.last = nextPoint;
+          walk.refine = { waypoint: nextPoint, readings: walk.refine.readings };
         }
       }
       if (walk.refine.readings >= 2) walk.refine = null;
     }
+    const minLoopMeters = walk.affectedArea ? WALK_AFFECTED_NEAR_START_MIN_METERS : WALK_NEAR_START_MIN_METERS;
     // A reading back on the first point after a real loop completes the boundary; adding it would only stack a vertex on the start.
     const closesLoop = decision.action === 'accept' && walk.last !== null
-      && isBackAtStart(fix, target[0] ?? null, target.length, walk.walkedMeters + distanceMeters(walk.last, decision.waypoint));
+      && isBackAtStart(fix, target[0] ?? null, target.length, walk.walkedMeters + distanceMeters(walk.last, decision.waypoint), minLoopMeters);
     if (decision.action === 'accept' && !closesLoop) {
       if (walk.last) walk.walkedMeters += distanceMeters(walk.last, decision.waypoint);
       walk.last = decision.waypoint;
@@ -872,7 +916,7 @@ export default function FieldSurveyScreen() {
     }
     // One place decides what the pill says: waiting for GPS, weak signal, back at the start, or the normal walking line.
     const weak = decision.action === 'skip' && decision.reason === 'weak_accuracy';
-    const backAtStart = usable && isBackAtStart(fix, target[0] ?? (decision.action === 'accept' ? decision.waypoint : null), pointCount, walk.walkedMeters);
+    const backAtStart = usable && isBackAtStart(fix, target[0] ?? (decision.action === 'accept' ? decision.waypoint : null), pointCount, walk.walkedMeters, minLoopMeters);
     let notice: string | null = null;
     if (weak) {
       if (!walk.weakSignal) {
@@ -916,7 +960,7 @@ export default function FieldSurveyScreen() {
   }
 
   // The walked stretch loses the points that only restate a straight edge. One Undo brings the raw walk back.
-  function tidyWalkedLine(walk: WalkSession): number {
+  function tidyWalkedLine(walk: WalkSession, finished: boolean): number {
     const live = shapeRef.current;
     const key = walk.affectedArea ? 'affectedWaypoints' : 'waypoints';
     const set = live[key];
@@ -924,7 +968,8 @@ export default function FieldSurveyScreen() {
     const from = Math.max(0, walk.startCount - 1);
     const segment = set.slice(from);
     if (segment.length < 4) return 0;
-    const tidy = simplifyWalkSegment(segment);
+    const minPoints = finished && set.length >= 3 ? Math.max(0, 3 - from) : undefined;
+    const tidy = simplifyWalkSegment(segment, undefined, minPoints ? { minPoints } : undefined);
     if (tidy.length === segment.length) return 0;
     commitShape({ ...live, [key]: [...set.slice(0, from), ...tidy] });
     return segment.length - tidy.length;
@@ -935,19 +980,26 @@ export default function FieldSurveyScreen() {
     const walk = walkRef.current;
     if (!walk) return;
     addFinalFix();
-    const removed = walk.started ? tidyWalkedLine(walk) : 0;
+    const removed = walk.started ? tidyWalkedLine(walk, finished) : 0;
     const net = Math.max(0, walk.added - removed);
     const tidyNote = removed > 0 ? FIELD_SURVEY_COPY.walkTidied(removed) : '';
     const stoppedOpen = !finished && walk.affectedArea && shapeRef.current.affectedWaypoints.length >= 3;
     const message = `${finished ? FIELD_SURVEY_COPY.walkFinished(net) : FIELD_SURVEY_COPY.walkStopped(net)}${tidyNote}${stoppedOpen ? ` ${FIELD_SURVEY_COPY.affectedAreaStillOpen}` : ''}`;
     stopWalk(message, 'brief');
     // Finish on an affected area closes it, or the walked points would stay open and the report would read "not measured".
-    if (finished && walk.affectedArea && shapeRef.current.affectedWaypoints.length >= 3) {
-      const failure = closeAffectedArea();
-      const notice = failure ?? `${message}${FIELD_SURVEY_COPY.walkAreaClosed}`;
-      setSyncMessage(notice);
-      setWalkNotice(notice);
-      if (failure === null) setResumeOffer(null);
+    if (finished && walk.affectedArea) {
+      if (shapeRef.current.affectedWaypoints.length >= 3) {
+        const failure = closeAffectedArea();
+        const notice = failure ?? `${message}${FIELD_SURVEY_COPY.walkAreaClosed}`;
+        setSyncMessage(notice);
+        setWalkNotice(notice);
+        setMapFeedback(failure ? { tone: 'danger', text: failure } : null);
+        if (failure === null) setResumeOffer(null);
+      } else {
+        setSyncMessage(FIELD_SURVEY_COPY.affectedAreaTooFewToClose);
+        setWalkNotice(FIELD_SURVEY_COPY.affectedAreaTooFewToClose);
+        setMapFeedback({ tone: 'warning', text: FIELD_SURVEY_COPY.affectedAreaTooFewToClose });
+      }
     }
   }
 
@@ -1136,7 +1188,7 @@ export default function FieldSurveyScreen() {
   function closeAffectedArea(): string | null {
     const current = shapeRef.current;
     const plot = validateSurveyWaypoints(current.waypoints);
-    if (!plot.valid) return plot.error.message;
+    if (!plot.valid) return plot.error.code === 'TOO_FEW_VERTICES' ? FIELD_SURVEY_COPY.plotRequiredForAffected : plot.error.message;
     const snappedWaypoints = snapAffectedAreaWaypoints(plot.polygon, current.affectedWaypoints);
     const candidate = validateSurveyWaypoints(snappedWaypoints);
     if (!candidate.valid) return candidate.error.message;
@@ -1148,11 +1200,17 @@ export default function FieldSurveyScreen() {
       }
       return result.error.message;
     }
+    const nextAreas = [...current.affectedAreas, candidate.polygon];
+    const nextSets = [...current.affectedAreaWaypointSets, snappedWaypoints];
+    const provenanceCheck = validateAffectedAreaWaypoints(nextAreas, nextSets);
+    if (!provenanceCheck.valid) return provenanceCheck.error.message;
+    const combined = measureAffectedAreas(plot.polygon, nextAreas);
+    if (!combined.valid) return combined.error.message;
     stopWalk();
     commitShape({
       ...current,
-      affectedAreas: [...current.affectedAreas, candidate.polygon],
-      affectedAreaWaypointSets: [...current.affectedAreaWaypointSets, snappedWaypoints],
+      affectedAreas: nextAreas,
+      affectedAreaWaypointSets: nextSets,
       affectedWaypoints: [],
     });
     setSelected(null);
@@ -1161,14 +1219,24 @@ export default function FieldSurveyScreen() {
 
   function finishAffectedArea() {
     const failure = closeAffectedArea();
-    setSyncMessage(failure);
+    if (failure) {
+      setSyncMessage(failure);
+      setMapFeedback({ tone: 'danger', text: failure });
+      return;
+    }
+    setSyncMessage(null);
+    setWalkNotice(null);
+    setResumeOffer(null);
+    setMapFeedback({ tone: 'success', text: FIELD_SURVEY_COPY.affectedAreaClosed });
   }
 
   function removeSelected() {
     if (!selected) return;
     const result = removePoint(shapeRef.current, selected);
     if (!result.ok) {
-      setSyncMessage(result.message || FIELD_SURVEY_COPY.moveRefused);
+      const rejection = result.message || FIELD_SURVEY_COPY.moveRefused;
+      setSyncMessage(rejection);
+      setMapFeedback({ tone: 'danger', text: rejection });
       return;
     }
     commitShape(result.shape);
@@ -1236,12 +1304,60 @@ export default function FieldSurveyScreen() {
     return best?.outline ?? null;
   }, [earlierOutlines, measuredBeforeDismissed, myLocation, waypoints.length]);
 
+  function switchDrawingTarget(nextAffected: boolean) {
+    setDrawingAffectedArea(nextAffected);
+    setSelected(null);
+    setSelectedArea(null);
+    setSyncMessage(null);
+    setWalkNotice(null);
+    if (nextAffected && !validation.valid) {
+      setMapFeedback({ tone: 'warning', text: FIELD_SURVEY_COPY.plotRequiredForAffected });
+    } else {
+      setMapFeedback(null);
+    }
+  }
+
+  // Starts a new editable draft from a completed (sent/pending) whole-plot map while preserving
+  // the immutable historical record, carrying the measured plot boundary straight into Affected area mode.
+  function measureAffectedFromCompletedPlot() {
+    if (!validation.valid) return;
+    stopWalk(null);
+    const carriedWaypoints = shapeRef.current.waypoints;
+    const inheritedOutlineRemoteId = storedRemoteId ?? outlineFromRemoteId;
+    const nextUuid = randomUUID();
+    if (forReport && surveyId) {
+      recordReplacedReportSurvey(surveyId, nextUuid);
+    }
+    const nextShape: DrawingShape = { ...EMPTY_SHAPE, waypoints: carriedWaypoints };
+    setResumeOffer(null);
+    setStoredRemoteId(null);
+    setOutlineFromRemoteId(inheritedOutlineRemoteId);
+    setMeasuredBeforeDismissed(true);
+    setClientUuid(nextUuid);
+    setShape(nextShape);
+    setHistory([]);
+    setDrawingAffectedArea(true);
+    setSelected(null);
+    setSelectedArea(null);
+    setFieldErrors({});
+    setSyncMessage(null);
+    setWalkNotice(null);
+    setMapFeedback({ tone: 'info', text: FIELD_SURVEY_COPY.completedPlotAffectedStarted });
+    setScreenState(NEW_BOUNDARY_SCREEN);
+    markEdited();
+    if (layoutRef.current) fitMapToShape(nextShape, layoutRef.current);
+    else fitRequested.current = true;
+  }
+
   function startNewBoundary() {
-    stopWalk();
+    stopWalk(null);
     setHasEdited(false);
     setLabel('');
+    setStoredRemoteId(null);
     setOutlineFromRemoteId(null);
     setMeasuredBeforeDismissed(false);
+    setResumeOffer(null);
+    setDrawingAffectedArea(false);
     setClientUuid(randomUUID());
     setShape(EMPTY_SHAPE);
     setHistory([]);
@@ -1249,6 +1365,8 @@ export default function FieldSurveyScreen() {
     setSelectedArea(null);
     setFieldErrors({});
     setSyncMessage(null);
+    setWalkNotice(null);
+    setMapFeedback(null);
     setSaveState('unsaved');
     setSaveAttempt((count) => count + 1);
     setScreenState(NEW_BOUNDARY_SCREEN);
@@ -1273,15 +1391,16 @@ export default function FieldSurveyScreen() {
   }
 
   // Touch targets live in the map layer so they follow the map while it is dragged.
+  // Mount only the active drawing target's handles (plus any deliberately selected finished area)
+  // so Whole plot vertices and "+" edge inserts cannot be dragged or inserted while drawing Affected areas.
   const editableSets: { ref: (index: number) => PointRef; points: SurveyWaypoint[]; closed: boolean; label: string }[] = [
-    { ref: (index) => ({ set: 'plot', index }), points: waypoints, closed: true, label: 'plot' },
-    { ref: (index) => ({ set: 'active', index }), points: affectedWaypoints, closed: false, label: 'active' },
+    ...(drawingAffectedArea
+      ? [{ ref: (index: number): PointRef => ({ set: 'active', index }), points: affectedWaypoints, closed: false, label: 'active' }]
+      : [{ ref: (index: number): PointRef => ({ set: 'plot', index }), points: waypoints, closed: true, label: 'plot' }]),
     ...(selectedArea !== null && affectedAreaWaypointSets[selectedArea]
       ? [{ ref: (index: number): PointRef => ({ set: 'area', area: selectedArea, index }), points: affectedAreaWaypointSets[selectedArea], closed: true, label: `area-${selectedArea}` }]
       : []),
   ];
-  // These callbacks only run from touch events; the lint rule cannot tell them apart from render-time reads.
-  /* eslint-disable react-hooks/refs */
   const handles = editableSets.map(({ ref: pointRefAt, points, closed, label }) => (
     <View key={label} pointerEvents="box-none" style={StyleSheet.absoluteFill}>
       {Array.from({ length: edgeCount(points.length, closed) }, (_, edge) => {
@@ -1319,7 +1438,6 @@ export default function FieldSurveyScreen() {
       })}
     </View>
   ));
-  /* eslint-enable react-hooks/refs */
   const areaChips = affectedAreas.map((area, index) => {
     const centroid = area.coordinates[0].slice(0, -1).reduce((sum, [longitude, latitude]) => ({ longitude: sum.longitude + longitude, latitude: sum.latitude + latitude }), { longitude: 0, latitude: 0 });
     const count = Math.max(1, area.coordinates[0].length - 1);
@@ -1343,7 +1461,15 @@ export default function FieldSurveyScreen() {
   const pointCount = drawingAffectedArea ? affectedWaypoints.length : waypoints.length;
   const quality = assessBoundaryQuality(waypoints);
   const badge = boundaryBadge(waypoints);
-  const toolState = drawingToolState({ locked: controlsLocked, drawingAffectedArea, hasSelection: selected !== null, activeAffectedCount: affectedWaypoints.length });
+  const toolState = drawingToolState({
+    locked: controlsLocked,
+    drawingAffectedArea,
+    hasSelection: selected !== null,
+    selectedSet: selected?.set ?? null,
+    activeAffectedCount: affectedWaypoints.length,
+  });
+  const undoAvailable = !controlsLocked && canUndoForTarget(shape, history, drawingAffectedArea);
+  const canStartAffectedFromCompletedPlot = validation.valid && (mode === 'sent' || mode === 'waiting_to_send');
   const listedPoints = selectedArea !== null && affectedAreaWaypointSets[selectedArea] ? affectedAreaWaypointSets[selectedArea] : drawingAffectedArea ? affectedWaypoints : waypoints;
   const listedRef = (index: number): PointRef => selectedArea !== null && affectedAreaWaypointSets[selectedArea] ? { set: 'area', area: selectedArea, index } : drawingAffectedArea ? { set: 'active', index } : { set: 'plot', index };
   // A report can use the map once the plot is measured, nothing is left open, and the draft is saved.
@@ -1361,7 +1487,24 @@ export default function FieldSurveyScreen() {
   // The boundary the walker is adding to: the live segment and the distance to start both read from it.
   const walkTarget = drawingAffectedArea ? affectedWaypoints : waypoints;
   const walkBand = walkLive ? walkAccuracyBand(walkLive.fix.accuracy) : null;
-  const showToolHint = !showWalkNotice && (mode === 'drawing_new' || (mode === 'drawing_resumed' && hasEdited) || (gpsBusy && screenCanEdit(mode)));
+  const showToolHint = !showWalkNotice && (
+    mode === 'drawing_new'
+    || (mode === 'drawing_resumed' && (hasEdited || drawingAffectedArea || selected !== null))
+    || (gpsBusy && screenCanEdit(mode))
+  );
+  const walkStatusMatchesFeedback = showWalkNotice && activeMapFeedback !== null && mapNotice === activeMapFeedback.text;
+  const showFeedbackPill = activeMapFeedback !== null && !walkStatusMatchesFeedback;
+  const feedbackPalette = activeMapFeedback ? feedbackColors(activeMapFeedback.tone, theme) : null;
+  const statusStripStyle = walkStatusMatchesFeedback && feedbackPalette
+    ? { backgroundColor: feedbackPalette.bg, borderColor: feedbackPalette.border }
+    : { backgroundColor: theme.surfaceElevated, borderColor: showToolHint || showWalkNotice ? theme.border : theme[SYNC_TONE_COLOR[strip.tone]] };
+  const walkStatusTextColor = walkStatusMatchesFeedback && feedbackPalette ? feedbackPalette.text : theme.text;
+  const dockSyncNotice = syncMessage && syncMessage !== activeMapFeedback?.text ? syncMessage : null;
+  const expandedSyncNotice = expanded && syncMessage
+    && syncMessage !== activeMapFeedback?.text
+    && (!showWalkNotice || syncMessage !== mapNotice)
+    ? syncMessage
+    : null;
   const mapNote = isOnline !== true
     ? tileSources.size > 0 ? FIELD_SURVEY_COPY.offlineMapSaved : FIELD_SURVEY_COPY.offlineMap
     : missingTiles.size > 0 || tileFailures.some((key) => tileSources.has(key)) ? `${FIELD_SURVEY_COPY.mapTileError}${tileDiagnostic ? ` [dev: ${tileDiagnostic}]` : ''}` : null;
@@ -1491,8 +1634,8 @@ export default function FieldSurveyScreen() {
             </Pressable>
           </GestureDetector>
           <View pointerEvents="box-none" style={styles.overlayTop}>
-            <View pointerEvents="none" style={styles.overlayMessages}>
-              <View testID="field-survey.status-strip" accessibilityLiveRegion="polite" accessibilityValue={{ text: `mode=${mode}` }} style={[styles.pill, { backgroundColor: theme.surfaceElevated, borderColor: showToolHint || showWalkNotice ? theme.border : theme[SYNC_TONE_COLOR[strip.tone]] }]}>
+            <View pointerEvents="box-none" style={styles.overlayMessages}>
+              <View pointerEvents="none" testID="field-survey.status-strip" accessibilityLiveRegion="polite" accessibilityValue={{ text: `mode=${mode}` }} style={[styles.pill, statusStripStyle]}>
                 {showWalkNotice ? (
                   <View>
                     {walking && walkLive ? (
@@ -1515,7 +1658,7 @@ export default function FieldSurveyScreen() {
                         </View>
                       </View>
                     ) : null}
-                    <Text testID="field-survey.walk-status" numberOfLines={4} style={[styles.pillText, { color: theme.text }]}>{mapNotice}</Text>
+                    <Text testID="field-survey.walk-status" numberOfLines={4} style={[styles.pillText, { color: walkStatusTextColor }]}>{mapNotice}</Text>
                     {walking && walkGuideOpen ? (
                       <View testID="field-survey.walk-guide" style={styles.guide}>
                         <Text style={[styles.guideTitle, { color: theme.primaryDark }]}>{FIELD_SURVEY_COPY.walkGuideTitle}</Text>
@@ -1531,7 +1674,34 @@ export default function FieldSurveyScreen() {
                   <Text numberOfLines={3} style={[styles.pillText, { color: theme[SYNC_TONE_COLOR[strip.tone]] }]}>{strip.text}</Text>
                 )}
               </View>
-              {mapNote ? <Text numberOfLines={2} style={[styles.pill, styles.pillText, { color: isOnline !== true ? theme.textSecondary : theme.warning, backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>{mapNote}</Text> : null}
+              {showFeedbackPill && activeMapFeedback && feedbackPalette ? (
+                <View pointerEvents="none" testID="field-survey.feedback" accessibilityLiveRegion="assertive" accessibilityValue={{ text: `tone=${activeMapFeedback.tone}` }} style={[styles.pill, { backgroundColor: feedbackPalette.bg, borderColor: feedbackPalette.border }]}>
+                  <Text numberOfLines={3} style={[styles.pillText, { color: feedbackPalette.text }]}>{activeMapFeedback.text}</Text>
+                </View>
+              ) : null}
+              {expanded && validityMarks.issue && validityMarks.issue !== 'too_few_points' ? (
+                <View pointerEvents="none" style={[styles.pill, { backgroundColor: theme.dangerBg, borderColor: theme.danger }]}>
+                  <Text testID="field-survey.validity" accessibilityLiveRegion="polite" numberOfLines={3} style={[styles.pillText, { color: theme.danger }]}>{FIELD_SURVEY_COPY.validity[validityMarks.issue]}</Text>
+                </View>
+              ) : null}
+              {expanded && saveState === 'failed' && saveLine ? (
+                <View style={[styles.pill, { backgroundColor: theme.dangerBg, borderColor: theme.danger }]}>
+                  {saveLine}
+                </View>
+              ) : null}
+              {expandedSyncNotice ? (
+                <View pointerEvents="none" style={[styles.pill, { backgroundColor: theme.infoBg, borderColor: theme.info }]}>
+                  <Text testID="field-survey.expanded-notice" accessibilityLiveRegion="assertive" numberOfLines={3} style={[styles.pillText, { color: theme.info }]}>{expandedSyncNotice}</Text>
+                </View>
+              ) : null}
+              {expanded && Object.keys(fieldErrors).length > 0 ? (
+                <View pointerEvents="none" testID="field-survey.expanded-errors" style={[styles.pill, { backgroundColor: theme.dangerBg, borderColor: theme.danger }]}>
+                  {Object.entries(fieldErrors).map(([field, messages]) => (
+                    <Text key={field} style={[styles.pillText, { color: theme.danger }]}>{field === 'district_code' ? messages.join(' ') : `${field}: ${messages.join(' ')}`}</Text>
+                  ))}
+                </View>
+              ) : null}
+              {mapNote ? <Text pointerEvents="none" numberOfLines={2} style={[styles.pill, styles.pillText, { color: isOnline !== true ? theme.textSecondary : theme.warning, backgroundColor: theme.surfaceElevated, borderColor: theme.border }]}>{mapNote}</Text> : null}
             </View>
             <View pointerEvents="box-none" style={styles.overlayButtons}>
               <MapIconButton testID="field-survey.expand" icon={expanded ? 'minimize-2' : 'maximize-2'} label={expanded ? FIELD_SURVEY_COPY.collapseMap : FIELD_SURVEY_COPY.expandMap} onPress={() => setExpanded((value) => !value)} />
@@ -1574,15 +1744,28 @@ export default function FieldSurveyScreen() {
               </View>
             </View>
           ) : null}
+          {canStartAffectedFromCompletedPlot ? (
+            <View testID="field-survey.measure-affected-from-plot" style={[styles.completedPlotCard, { backgroundColor: theme.surfaceElevated, borderColor: theme.warning }]}>
+              <Text style={[styles.label, styles.cardTitle, { color: theme.text }]}>{FIELD_SURVEY_COPY.completedPlotAffectedTitle}</Text>
+              {expanded ? null : (
+                <Text style={[styles.help, { color: theme.textSecondary }]}>
+                  {FIELD_SURVEY_COPY.completedPlotAffectedBody((validation.areaSqm / 10_000).toFixed(2))}
+                </Text>
+              )}
+              <AppButton testID="field-survey.measure-affected-from-plot.action" leadingIcon="alert-triangle" onPress={measureAffectedFromCompletedPlot}>
+                {FIELD_SURVEY_COPY.completedPlotAffectedAction}
+              </AppButton>
+            </View>
+          ) : null}
           <View accessibilityRole="radiogroup" style={styles.segmented}>
-            <AppButton testID="field-survey.target-plot" leadingIcon="square" variant="secondary" selected={!drawingAffectedArea} style={[styles.toolButton, !drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={editLocked} onPress={() => { setDrawingAffectedArea(false); setSelected(null); setSyncMessage(null); setWalkNotice(null); }}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
-            <AppButton testID="field-survey.target-affected" leadingIcon="alert-triangle" variant="secondary" selected={drawingAffectedArea} style={[styles.toolButton, drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.warning, borderWidth: 2 }]} disabled={editLocked} onPress={() => { setDrawingAffectedArea(true); setSelected(null); setSyncMessage(null); setWalkNotice(null); }}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
+            <AppButton testID="field-survey.target-plot" leadingIcon="square" variant="secondary" selected={!drawingAffectedArea} style={[styles.toolButton, !drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={editLocked} onPress={() => switchDrawingTarget(false)}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
+            <AppButton testID="field-survey.target-affected" leadingIcon="alert-triangle" variant="secondary" selected={drawingAffectedArea} style={[styles.toolButton, drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.warning, borderWidth: 2 }]} disabled={editLocked} onPress={() => switchDrawingTarget(true)}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
           </View>
           <View style={styles.toolRow}>
             {/* Three buttons share the row while an affected area is open, so they drop their icons to keep one line each. */}
-            <AppButton variant="secondary" leadingIcon={drawingAffectedArea ? undefined : 'corner-up-left'} style={styles.toolButton} disabled={(!pointCount && history.length === 0) || controlsLocked} onPress={undoLast}>{FIELD_SURVEY_COPY.undo}</AppButton>
+            <AppButton variant="secondary" leadingIcon={drawingAffectedArea ? undefined : 'corner-up-left'} style={styles.toolButton} disabled={!undoAvailable} onPress={undoLast}>{FIELD_SURVEY_COPY.undo}</AppButton>
             <AppButton variant="secondary" leadingIcon={drawingAffectedArea ? undefined : 'trash-2'} style={styles.toolButton} disabled={selected === null || editLocked} onPress={removeSelected}>{FIELD_SURVEY_COPY.removeSelected}</AppButton>
-            {drawingAffectedArea ? <AppButton variant="secondary" style={styles.toolButton} disabled={affectedWaypoints.length < 3 || editLocked} onPress={finishAffectedArea}>{FIELD_SURVEY_COPY.finishAffectedArea}</AppButton> : null}
+            {drawingAffectedArea ? <AppButton testID="field-survey.finish-area" variant="secondary" style={styles.toolButton} disabled={affectedWaypoints.length < 3 || editLocked} onPress={finishAffectedArea}>{FIELD_SURVEY_COPY.finishAffectedArea}</AppButton> : null}
           </View>
           {expanded ? (
             <View style={styles.expandedBar}>
@@ -1677,9 +1860,9 @@ export default function FieldSurveyScreen() {
               {validityMarks.issue && validityMarks.issue !== 'too_few_points' ? <Text testID="field-survey.validity" accessibilityLiveRegion="polite" style={[styles.help, { color: theme.danger }]}>{FIELD_SURVEY_COPY.validity[validityMarks.issue]}</Text> : null}
               {/* One fixed-height slot, so the map above never jumps when this line changes. */}
               <View style={styles.statusSlot}>
-                {forReport && !reportReady ? <Text testID="field-survey.report-unfinished" numberOfLines={2} style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.reportUnfinished}</Text> : saveLine}
+                {saveState === 'failed' ? saveLine : forReport && !reportReady ? <Text testID="field-survey.report-unfinished" numberOfLines={2} style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.reportUnfinished}</Text> : saveLine}
               </View>
-              {syncMessage ? <Text accessibilityLiveRegion="assertive" testID="field-survey.sync-status" style={[styles.help, { color: theme.info }]}>{syncMessage}</Text> : null}
+              {dockSyncNotice ? <Text accessibilityLiveRegion="assertive" testID="field-survey.sync-status" style={[styles.help, { color: theme.info }]}>{dockSyncNotice}</Text> : null}
               {Object.entries(fieldErrors).map(([field, messages]) => <Text key={field} style={[styles.error, { color: theme.danger }]}>{field === 'district_code' ? messages.join(' ') : `${field}: ${messages.join(' ')}`}</Text>)}
             </>
           }
@@ -1723,6 +1906,8 @@ const styles = StyleSheet.create({
   help: { ...Typography.bodySmall },
   outlines: { gap: Spacing.sm },
   offer: { borderWidth: 2, borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm },
+  completedPlotCard: { borderWidth: 1.5, borderRadius: Radius.md, padding: Spacing.sm, gap: Spacing.xs },
+  cardTitle: { marginTop: 0 },
   error: { ...Typography.bodySmall, fontWeight: '500' },
   map: { flex: 1, borderWidth: MAP_BORDER_WIDTH, borderRadius: Radius.lg, overflow: 'hidden', marginHorizontal: Spacing.lg, marginTop: Spacing.sm },
   mapLayer: { position: 'absolute', left: -SURVEY_MAP_OVERSCAN, top: -SURVEY_MAP_OVERSCAN },

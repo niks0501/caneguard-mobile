@@ -398,20 +398,38 @@ it('ignores map taps while walking and keeps them working after Stop', async () 
 });
 
 // Intent (item 8): Walk excludes tap editing, including the edge "+" inserts and the point handles.
+// Target isolation: plot handles only mount in Whole plot mode; active handles only mount in Affected area mode.
 it('hides the map handles while walking so points cannot be inserted, selected or dragged', async () => {
   listSurveys.mockReturnValue([draftRow({ activeAffectedWaypointsJson: JSON.stringify(AFFECTED_WAYPOINTS) })]);
   const remove = jest.fn();
   watch.mockImplementation(async () => ({ remove }));
 
   await renderOpen();
+  // Opening a draft with active affected points lands in Affected area mode: only active handles mount.
   await waitFor(() => expect(screen.getByTestId('field-survey.point.active.0')).toBeTruthy());
-  expect(screen.getByTestId('field-survey.point.plot.0')).toBeTruthy();
-  expect(screen.getByTestId('field-survey.insert.plot.0')).toBeTruthy();
+  expect(screen.getByTestId('field-survey.insert.active.0')).toBeTruthy();
+  expect(screen.queryByTestId('field-survey.point.plot.0')).toBeNull();
+  expect(screen.queryByTestId('field-survey.insert.plot.0')).toBeNull();
 
   await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
   await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
   expect(screen.queryByTestId('field-survey.point.plot.0')).toBeNull();
   expect(screen.queryByTestId('field-survey.point.active.0')).toBeNull();
+  expect(screen.queryByTestId('field-survey.insert.active.0')).toBeNull();
+
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+  expect(screen.getByTestId('field-survey.point.active.0')).toBeTruthy();
+  expect(screen.queryByTestId('field-survey.point.plot.0')).toBeNull();
+
+  // Switching back to Whole plot exposes plot handles, which also hide during a plot walk.
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.target-plot')); });
+  expect(screen.getByTestId('field-survey.point.plot.0')).toBeTruthy();
+  expect(screen.getByTestId('field-survey.insert.plot.0')).toBeTruthy();
+  expect(screen.queryByTestId('field-survey.point.active.0')).toBeNull();
+
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+  expect(screen.queryByTestId('field-survey.point.plot.0')).toBeNull();
   expect(screen.queryByTestId('field-survey.insert.plot.0')).toBeNull();
 
   await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
@@ -872,4 +890,88 @@ it('names how far points are outside the plot when closing an affected walk is r
   await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk-finish')); });
   expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(/outside the plot/);
   expect(lastDraftActiveAffectedWaypoints().length).toBeGreaterThanOrEqual(3);
+});
+
+it('offers Finish on a compact affected-area walk (>= 15 m perimeter) and closes it', async () => {
+  listSurveys.mockReturnValue([draftRow()]);
+  let emit: (fix: WalkFix) => void = () => undefined;
+  watch.mockImplementation(async (onFix) => { emit = onFix; return { remove: jest.fn() }; });
+  await renderOpen();
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.newSurvey)).toBeTruthy());
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.target-affected')); });
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+
+  // ~8.6 m east, ~8.9 m north (~17.5 m walked, below the 30 m whole-plot threshold but >= 15 m affected threshold).
+  await act(async () => {
+    emit(fix(14.10050, 121.10050));
+    emit(fix(14.10050, 121.10058));
+    emit(fix(14.10058, 121.10058));
+    emit(fix(14.10051, 121.10051)); // ~1.5 m from start
+  });
+
+  await waitFor(() => expect(screen.getByTestId('field-survey.walk-finish')).toBeTruthy());
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk-finish')); });
+
+  await waitFor(() => expect(lastDraftAffectedWaypoints()).toHaveLength(1));
+  expect(lastDraftActiveAffectedWaypoints()).toHaveLength(0);
+  expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(/closed and measured/);
+});
+
+it('keeps at least 3 points on tidy when finishing a narrow walked affected strip', async () => {
+  listSurveys.mockReturnValue([draftRow()]);
+  let emit: (fix: WalkFix) => void = () => undefined;
+  watch.mockImplementation(async (onFix) => { emit = onFix; return { remove: jest.fn() }; });
+  await renderOpen();
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.newSurvey)).toBeTruthy());
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.target-affected')); });
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+
+  // Narrow ~1 m wide strip along a single cane row: without minPoints=3, RDP would collapse it to 2 points.
+  await act(async () => {
+    emit(fix(14.100500, 121.100500));
+    emit(fix(14.100509, 121.100590));
+    emit(fix(14.100509, 121.100680));
+    emit(fix(14.100500, 121.100770));
+    emit(fix(14.100500, 121.100640));
+    emit(fix(14.100501, 121.100505)); // back at start
+  });
+
+  await waitFor(() => expect(screen.getByTestId('field-survey.walk-finish')).toBeTruthy());
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk-finish')); });
+
+  await waitFor(() => expect(lastDraftAffectedWaypoints()).toHaveLength(1));
+  expect(lastDraftAffectedWaypoints()[0].length).toBeGreaterThanOrEqual(3);
+  expect(lastDraftActiveAffectedWaypoints()).toHaveLength(0);
+  expect(screen.getByTestId('field-survey.walk-status')).toHaveTextContent(/closed and measured/);
+});
+
+it('clears the unclosed walk notice and shows confirmation after Stop walking then Finish area', async () => {
+  listSurveys.mockReturnValue([draftRow()]);
+  let emit: (fix: WalkFix) => void = () => undefined;
+  watch.mockImplementation(async (onFix) => { emit = onFix; return { remove: jest.fn() }; });
+  await renderOpen();
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.newSurvey)).toBeTruthy());
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.target-affected')); });
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.walk')); });
+  await waitFor(() => expect(screen.getByText(FIELD_SURVEY_COPY.walkStop)).toBeTruthy());
+
+  await act(async () => {
+    emit(fix(14.1005, 121.1005));
+    emit(fix(14.1005, 121.1008));
+    emit(fix(14.1008, 121.1008));
+  });
+  await act(async () => { fireEvent.press(screen.getByText(FIELD_SURVEY_COPY.walkStop)); });
+
+  const stopNotice = screen.getByTestId('field-survey.walk-status');
+  expect(stopNotice).toHaveTextContent(FIELD_SURVEY_COPY.affectedAreaStillOpen, { exact: false });
+  expect(stopNotice).not.toHaveTextContent(/Open More/);
+
+  await act(async () => { fireEvent.press(screen.getByTestId('field-survey.finish-area')); });
+
+  await waitFor(() => expect(lastDraftAffectedWaypoints()).toHaveLength(1));
+  expect(lastDraftActiveAffectedWaypoints()).toHaveLength(0);
+  expect(screen.queryByTestId('field-survey.walk-status')).toBeNull();
+  expect(screen.getByTestId('field-survey.feedback')).toHaveTextContent(FIELD_SURVEY_COPY.affectedAreaClosed);
 });

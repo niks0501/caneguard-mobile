@@ -4,6 +4,7 @@ import { BackHandler, Linking, Platform } from 'react-native';
 
 import FieldReportScreen from '@/app/field-report';
 import { FIELD_SURVEY_COPY } from '@/constants/copy';
+import { clearReplacedReportSurveys, recordReplacedReportSurvey } from '@/features/surveys/services/reportSurveyHandoff';
 import { ToastProvider } from '@/components/ui/Toast';
 import type {
   FieldReport,
@@ -2046,6 +2047,85 @@ describe('FieldReportScreen', () => {
 
       expect(mockSave).toHaveBeenCalledWith({ fieldSurveyClientUuid: null });
     } finally {
+      focusSpy.mockRestore();
+    }
+  });
+
+  it('re-links and fills plot and affected area when a locked whole-plot map transitions to a new affected-area draft', async () => {
+    clearReplacedReportSurveys();
+    const React = jest.requireActual<typeof import('react')>('react');
+    const expoRouter = jest.requireMock('expo-router') as { useFocusEffect: (callback: () => void | (() => void)) => void };
+    const screens = new Set<{ blur: () => void; focus: () => void }>();
+    const focusSpy = jest.spyOn(expoRouter, 'useFocusEffect').mockImplementation((callback) => {
+      React.useEffect(() => {
+        let cleanup = callback();
+        const entry = {
+          blur: () => { if (typeof cleanup === 'function') cleanup(); cleanup = undefined; },
+          focus: () => { cleanup = callback(); },
+        };
+        screens.add(entry);
+        return () => { screens.delete(entry); if (typeof cleanup === 'function') cleanup(); };
+      }, [callback]);
+    });
+    try {
+      mockDraftState = {
+        ...mockDraftState,
+        data: draft({ fieldSurveyClientUuid: 'sent-plot-uuid' }),
+      };
+      const corner = (latitude: number, longitude: number) => ({ latitude, longitude, accuracyMeters: null, capturedAt: '2026-10-05T09:00:00.000Z', source: 'map' });
+      const sentPlot = {
+        clientUuid: 'sent-plot-uuid',
+        status: 'synced',
+        districtCode: 'D1',
+        remoteId: 'remote-42',
+        lastSyncErrorCode: null,
+        capturedAt: '2026-10-05T09:00:00.000Z',
+        waypointsJson: JSON.stringify([corner(14, 120), corner(14, 120.001), corner(14.001, 120.001), corner(14.001, 120)]),
+        affectedAreaPolygonsJson: '[]',
+        affectedAreaWaypointsJson: '[]',
+        activeAffectedWaypointsJson: '[]',
+      };
+      mockSavedSurveys = [sentPlot];
+      mockFoundSurvey = sentPlot;
+
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+      await goToStep(1);
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.survey-open'));
+      });
+      mockSave.mockClear();
+
+      // Field Survey transitioned the locked plot into a new draft with a closed affected area.
+      recordReplacedReportSurvey('sent-plot-uuid', 'replacement-draft-uuid');
+      mockFoundSurvey = {
+        clientUuid: 'replacement-draft-uuid',
+        status: 'draft',
+        districtCode: 'D1',
+        remoteId: null,
+        outlineFromRemoteId: 'remote-42',
+        lastSyncErrorCode: null,
+        capturedAt: '2026-10-05T09:10:00.000Z',
+        waypointsJson: JSON.stringify([corner(14, 120), corner(14, 120.001), corner(14.001, 120.001), corner(14.001, 120)]),
+        affectedAreaPolygonsJson: JSON.stringify([{ type: 'Polygon', coordinates: [[[120, 14], [120.0005, 14], [120.0005, 14.0005], [120, 14.0005], [120, 14]]] }]),
+        affectedAreaWaypointsJson: '[]',
+        activeAffectedWaypointsJson: '[]',
+      };
+
+      await act(async () => { screens.forEach((entry) => entry.blur()); });
+      await act(async () => { screens.forEach((entry) => entry.focus()); });
+
+      expect(mockSave).toHaveBeenCalledWith({ fieldSurveyClientUuid: 'replacement-draft-uuid' });
+      expect(screen.getByTestId('field-report.area-manual.summary')).toHaveTextContent(/ha · .*% affected/);
+      await openTypedNumbers();
+      const area = Number(screen.getByTestId('field-report.affected-area-input').props.value);
+      const portion = Number(screen.getByTestId('field-report.affected-portion-input').props.value);
+      expect(area).toBeGreaterThan(1.19);
+      expect(area).toBeLessThan(1.21);
+      expect(portion).toBeGreaterThan(24.5);
+      expect(portion).toBeLessThan(25.5);
+    } finally {
+      clearReplacedReportSurveys();
       focusSpy.mockRestore();
     }
   });

@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { EMPTY_DATABASE, useCaneGuardDatabase } from '@/database/DatabaseProvider';
 import { listFieldValidationCompletionSummaries } from '@/features/assignments/data/fieldValidationCompletionRepository';
 import { useFieldValidationAssignments } from '@/features/assignments/hooks/useFieldValidationAssignments';
+import { useLocalVisitDate } from '@/features/assignments/hooks/useLocalVisitDate';
 import {
   getLocalDateKey,
   selectTodayVisits,
@@ -14,39 +15,33 @@ export function useTodayVisits() {
   const database = useCaneGuardDatabase();
   const { session } = useAuth();
   const assignments = useFieldValidationAssignments();
-  const [completedAssignmentIds, setCompletedAssignmentIds] = useState<Set<string>>(new Set());
-  const [completedTodayCount, setCompletedTodayCount] = useState(0);
-  const today = getLocalDateKey();
-
-  const refreshCompletions = useCallback(async () => {
-    if (!session || !database || database === EMPTY_DATABASE) return;
-    try {
-      const completions = await listFieldValidationCompletionSummaries(
-        database,
-        session.user.uuid,
-      );
-      const todayKey = getLocalDateKey();
-      setCompletedAssignmentIds(new Set(completions.map((completion) => completion.assignmentId)));
-      setCompletedTodayCount(
-        completions.filter((completion) => getLocalDateKey(new Date(completion.visitedAt)) === todayKey).length,
-      );
-    } catch {
-      // A stale or unavailable completion cache must not hide assignment work.
-      setCompletedAssignmentIds(new Set());
-      setCompletedTodayCount(0);
-    }
-  }, [database, session]);
+  const owner = session?.user.uuid;
+  const [snapshot, setSnapshot] = useState<{
+    owner: string;
+    completions: Awaited<ReturnType<typeof listFieldValidationCompletionSummaries>>;
+  } | null>(null);
+  const today = useLocalVisitDate();
 
   useFocusEffect(
     useCallback(() => {
-      void refreshCompletions();
-    }, [refreshCompletions]),
+      if (!owner || !database || database === EMPTY_DATABASE) return;
+      let current = true;
+      void listFieldValidationCompletionSummaries(database, owner).then(
+        (completions) => { if (current) setSnapshot({ owner, completions }); },
+        () => { if (current) setSnapshot(null); },
+      );
+      return () => { current = false; };
+    }, [database, owner]),
   );
 
-  const visits = useMemo(
-    () => selectTodayVisits(assignments.assignments, completedAssignmentIds),
-    [assignments.assignments, completedAssignmentIds],
-  );
+  const completions = snapshot?.owner === owner ? snapshot?.completions : undefined;
+  const visits = useMemo(() => selectTodayVisits(
+    assignments.assignments,
+    new Set(completions?.map((completion) => completion.assignmentId)),
+  ), [assignments.assignments, completions]);
+  const completedTodayCount = completions?.filter(
+    (completion) => getLocalDateKey(new Date(completion.visitedAt)) === today,
+  ).length ?? 0;
 
   return {
     ...assignments,

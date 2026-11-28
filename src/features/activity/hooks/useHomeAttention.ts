@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
-import { AppState } from 'react-native';
+import { useMemo } from 'react';
 
 import { useUnfinishedDrafts } from '@/features/activity/hooks/useUnfinishedDrafts';
 import {
@@ -9,7 +8,8 @@ import {
 import type { FieldValidationAssignment } from '@/features/assignments/domain/assignmentTypes';
 import { useFieldValidationAssignments } from '@/features/assignments/hooks/useFieldValidationAssignments';
 import { usePhoneCompletionSnapshot } from '@/features/assignments/hooks/usePhoneCompletionStates';
-import { getLocalDateKey, selectTodayVisits } from '@/features/assignments/domain/todayVisits';
+import { selectTodayVisits } from '@/features/assignments/domain/todayVisits';
+import { useLocalVisitDate } from '@/features/assignments/hooks/useLocalVisitDate';
 import { useMobileNotifications } from '@/features/notifications/hooks/useMobileNotifications';
 import { useNotificationDestinations } from '@/features/notifications/hooks/useNotificationDestinations';
 
@@ -45,28 +45,8 @@ export function useHomeAttention(): HomeAttention {
   const completions = usePhoneCompletionSnapshot();
   const notifications = useMobileNotifications();
   const destinations = useNotificationDestinations(notifications.notifications);
-  const [today, setToday] = useState(getLocalDateKey);
+  const today = useLocalVisitDate();
   const drafts = useUnfinishedDrafts();
-
-  useEffect(() => {
-    const now = new Date();
-    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    const timer = setTimeout(
-      () => setToday(getLocalDateKey()),
-      nextMidnight.getTime() - now.getTime(),
-    );
-    return () => clearTimeout(timer);
-  }, [today]);
-
-  useEffect(() => {
-    let previousState: string | null = AppState.currentState ?? null;
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      const becameActive = nextState === 'active' && previousState !== 'active';
-      previousState = nextState;
-      if (becameActive) setToday(getLocalDateKey());
-    });
-    return () => subscription.remove();
-  }, []);
 
   const visits = useMemo(
     () =>

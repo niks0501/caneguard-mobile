@@ -64,6 +64,9 @@ describe('drawing tool state', () => {
     expect(drawingToolState({ ...base, drawingAffectedArea: true, activeAffectedCount: 3 })).toBe('affected.closable');
     expect(drawingToolState({ ...base, drawingAffectedArea: true, hasSelection: true, selectedSet: 'plot' })).toBe('plot.move');
     expect(drawingToolState({ ...base, drawingAffectedArea: false, hasSelection: true, selectedSet: 'area' })).toBe('affected.move');
+    expect(drawingToolState({ ...base, drawingAffectedArea: true, subdividing: true, subdivisionPieceCount: 0 })).toBe('divide.draw');
+    expect(drawingToolState({ ...base, drawingAffectedArea: true, subdividing: true, subdivisionPieceCount: 2 })).toBe('divide.select');
+    expect(drawingToolState({ ...base, locked: true, drawingAffectedArea: true, subdividing: true, subdivisionPieceCount: 2 })).toBe('idle');
   });
 });
 

@@ -12,7 +12,11 @@ import { BarangayPicker } from '@/features/reports/components/BarangayPicker';
 import { NASUGBU_BARANGAYS } from '@/features/reports/referenceData/nasugbuSeed';
 import { enqueueFarmerInquiry } from '@/features/farmer-care/data/farmerCareRepository';
 import { FARMER_AI_LABELS, FARMER_CONCERNS, type FarmerConcern } from '@/features/farmer-care/domain/farmerCareTypes';
-import { useFarmerCare, useHomeBarangay } from '@/features/farmer-care/hooks/useFarmerCare';
+import {
+  isSupportedFarmerBarangay,
+  useFarmerCare,
+  useHomeBarangay,
+} from '@/features/farmer-care/hooks/useFarmerCare';
 import { useScanRecordDetails } from '@/features/records/hooks/useRecords';
 import { useTheme } from '@/hooks/use-theme';
 import { useFarmerCopy } from '@/providers/LanguagePreferenceProvider';
@@ -39,9 +43,11 @@ export function AskOfficeSheet() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // The home barangay is chosen once and pre-selected here, unless the farmer picks another.
   const barangay = pickedBarangay ?? home.barangay ?? '';
+  const trimmedBarangay = barangay.trim();
+  const barangaySupported = isSupportedFarmerBarangay(trimmedBarangay || null);
 
   const dirty = landmark.length > 0 || concern !== null || pickedBarangay !== null;
-  const ready = isFarmer && !!ownerIdentity && !!scanId && !!scan.data && barangay.trim().length > 0 && !pending;
+  const ready = isFarmer && !!ownerIdentity && !!scanId && !!scan.data && barangaySupported && !pending;
 
   const submit = async () => {
     if (!ready || !ownerIdentity || !scanId || !scan.data) return;
@@ -55,16 +61,21 @@ export function AskOfficeSheet() {
         id: randomUUID(),
         ownerIdentity,
         scanRecordId: scanId,
-        barangay: barangay.trim(),
+        barangay: trimmedBarangay,
         landmark: landmark.trim() || null,
         concern,
         aiLabel: label,
         aiConfidencePercent: label ? Math.round(Math.min(1, Math.max(0, scan.data.confidence)) * 100) : null,
         createdAt: new Date().toISOString(),
       });
-      // Remember the barangay for next time without asking again.
-      if (!home.barangay) void home.save(barangay.trim());
-      const result = await syncNow();
+      // Save the home barangay before syncing so PATCH /profile and GET /advisories never race.
+      const shouldRememberHome = !home.barangay || home.unsupported;
+      if (shouldRememberHome) {
+        await home.save(trimmedBarangay, { syncAfter: false });
+      }
+      const result = await syncNow(
+        shouldRememberHome ? { refreshAdvisories: true, forceAdvisories: true } : undefined,
+      );
       showToast(created && result && result.sent > 0 ? copy.sentNow : copy.saved, 'success');
       router.back();
     } catch {
@@ -92,13 +103,16 @@ export function AskOfficeSheet() {
         <Text style={[styles.reassurance, { color: theme.text }]}>{copy.reassurance}</Text>
         <Text style={[styles.willSee, { color: theme.textSecondary }]}>{copy.willSee}</Text>
         <BarangayPicker
+          allowCustom={false}
           barangays={NASUGBU_BARANGAYS}
           value={barangay}
           onChange={setPickedBarangay}
           testID="ask-office.barangay"
         />
-        {barangay.trim().length === 0 ? (
+        {trimmedBarangay.length === 0 ? (
           <Text style={[styles.willSee, { color: theme.textSecondary }]}>{copy.barangayNeeded}</Text>
+        ) : !barangaySupported ? (
+          <Text style={[styles.willSee, { color: theme.textSecondary }]}>{copy.barangayUnsupported}</Text>
         ) : null}
         <TextField
           testID="ask-office.landmark"

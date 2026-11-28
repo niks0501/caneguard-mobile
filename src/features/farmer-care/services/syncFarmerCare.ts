@@ -57,18 +57,22 @@ export interface SyncFarmerCareResult {
   /** The farmer's requests the office has now answered, newly seen in this run. */
   newlyAnswered: number;
   held: boolean;
+  /** True only when the guidance endpoint succeeded and updated the local cache. */
+  advisoriesRefreshed: boolean;
   /** Set when guidance was downloaded: the home barangay the office holds for this farmer. */
   homeBarangay: string | null;
 }
 
 /**
- * A server "wait" (Retry-After, rate limit, paused office) holds every farmer
- * request for this owner until it passes, so a recovering phone never hammers.
+ * Per-channel server "wait" holds (Retry-After, rate limit, paused office) so an
+ * inquiry throttle or feature pause never blocks barangay guidance downloads.
  */
-const holdsUntilMs = new Map<string, number>();
+const inquiryHoldsUntilMs = new Map<string, number>();
+const advisoryHoldsUntilMs = new Map<string, number>();
 
 export function resetFarmerCareHolds(): void {
-  holdsUntilMs.clear();
+  inquiryHoldsUntilMs.clear();
+  advisoryHoldsUntilMs.clear();
 }
 
 /**
@@ -82,71 +86,89 @@ export async function syncFarmerCare(options: SyncFarmerCareOptions): Promise<Sy
   const api = options.api ?? defaultApi;
   const now = options.nowMs ?? Date.now;
   const imageExists = options.imageExists ?? ((uri: string) => new File(uri).exists);
-  const result: SyncFarmerCareResult = { sent: 0, waiting: 0, failed: 0, newlyAnswered: 0, held: false, homeBarangay: null };
+  const result: SyncFarmerCareResult = {
+    sent: 0,
+    waiting: 0,
+    failed: 0,
+    newlyAnswered: 0,
+    held: false,
+    advisoriesRefreshed: false,
+    homeBarangay: null,
+  };
 
-  const holdUntil = holdsUntilMs.get(ownerIdentity) ?? 0;
-  if (holdUntil > now()) {
-    return { ...result, held: true };
+  const inquiryHeld = (inquiryHoldsUntilMs.get(ownerIdentity) ?? 0) > now();
+  const advisoryHeld = (advisoryHoldsUntilMs.get(ownerIdentity) ?? 0) > now();
+  if (inquiryHeld) {
+    result.held = true;
   }
 
-  let stopped = false;
-  const candidates = findFarmerInquirySendCandidates(database, ownerIdentity, { nowMs: now() });
-  for (const candidate of candidates) {
-    if (stopped) break;
-    const attemptedAt = new Date(now()).toISOString();
-    const staleBefore = new Date(now() - FARMER_INQUIRY_STALE_SYNCING_MS).toISOString();
-    if (!markFarmerInquirySyncing(database, ownerIdentity, candidate.id, attemptedAt, staleBefore)) continue;
+  let inquiryStopped = inquiryHeld;
+  let globalStopped = false;
 
-    let submission: FarmerInquirySubmission;
-    try {
-      submission = buildSubmission(database, ownerIdentity, candidate, imageExists);
-    } catch (error: unknown) {
-      const code = error instanceof SyncError ? error.code : 'INVALID_LOCAL_RECORD';
-      markFarmerInquiryFailed(database, ownerIdentity, candidate.id, code, attemptedAt);
-      result.failed += 1;
-      continue;
-    }
+  if (!inquiryHeld) {
+    const candidates = findFarmerInquirySendCandidates(database, ownerIdentity, { nowMs: now() });
+    for (const candidate of candidates) {
+      if (inquiryStopped || globalStopped) break;
+      const attemptedAt = new Date(now()).toISOString();
+      const staleBefore = new Date(now() - FARMER_INQUIRY_STALE_SYNCING_MS).toISOString();
+      if (!markFarmerInquirySyncing(database, ownerIdentity, candidate.id, attemptedAt, staleBefore)) continue;
 
-    try {
-      const remote = await api.submit(submission, token);
-      markFarmerInquirySent(database, ownerIdentity, candidate.id, remote, new Date(now()).toISOString());
-      result.sent += 1;
-    } catch (error: unknown) {
-      const at = new Date(now()).toISOString();
-      const openUuid = error instanceof ApiHttpError && error.status === 409 ? readOpenInquiryUuid(error.body) : null;
-      if (openUuid) {
-        // The office already holds a request for this plant: this one joins it rather than repeating it.
-        markFarmerInquirySent(
-          database,
-          ownerIdentity,
-          candidate.id,
-          { remoteId: openUuid, status: 'new', replies: [] },
-          at,
-        );
-        result.sent += 1;
+      let submission: FarmerInquirySubmission;
+      try {
+        submission = buildSubmission(database, ownerIdentity, candidate, imageExists);
+      } catch (error: unknown) {
+        const code = error instanceof SyncError ? error.code : 'INVALID_LOCAL_RECORD';
+        markFarmerInquiryFailed(database, ownerIdentity, candidate.id, code, attemptedAt);
+        result.failed += 1;
         continue;
       }
-      const syncError = toSyncError(error, { endpoint: 'report' });
-      if (isLater(syncError)) {
-        markFarmerInquiryWaiting(database, ownerIdentity, candidate.id, syncError.code, at);
-        result.waiting += 1;
-        if (syncError.retryAfterMs) {
-          holdsUntilMs.set(ownerIdentity, now() + jitter(syncError.retryAfterMs));
+
+      try {
+        const remote = await api.submit(submission, token);
+        markFarmerInquirySent(database, ownerIdentity, candidate.id, remote, new Date(now()).toISOString());
+        result.sent += 1;
+      } catch (error: unknown) {
+        const at = new Date(now()).toISOString();
+        const openUuid = error instanceof ApiHttpError && error.status === 409 ? readOpenInquiryUuid(error.body) : null;
+        if (openUuid) {
+          // The office already holds a request for this plant: this one joins it rather than repeating it.
+          markFarmerInquirySent(
+            database,
+            ownerIdentity,
+            candidate.id,
+            { remoteId: openUuid, status: 'new', replies: [] },
+            at,
+          );
+          result.sent += 1;
+          continue;
         }
-        // One failure says what the next will: stop instead of trying every request.
-        stopped = true;
-      } else {
-        markFarmerInquiryFailed(database, ownerIdentity, candidate.id, syncError.code, at);
-        result.failed += 1;
+        const syncError = toSyncError(error, { endpoint: 'report' });
+        if (isLater(syncError)) {
+          markFarmerInquiryWaiting(database, ownerIdentity, candidate.id, syncError.code, at);
+          result.waiting += 1;
+          if (syncError.retryAfterMs) {
+            inquiryHoldsUntilMs.set(ownerIdentity, now() + jitter(syncError.retryAfterMs));
+          }
+          // Inquiry failures stop further inquiry tries, but only session/network outages block guidance downloads.
+          inquiryStopped = true;
+          if (isGlobalStop(syncError)) {
+            globalStopped = true;
+          }
+        } else {
+          markFarmerInquiryFailed(database, ownerIdentity, candidate.id, syncError.code, at);
+          result.failed += 1;
+        }
       }
     }
   }
 
-  if (!stopped) {
+  if (!inquiryStopped && !globalStopped) {
     result.newlyAnswered = await refreshRemoteState(database, ownerIdentity, token, api, now);
-    if (options.refreshAdvisories) {
-      result.homeBarangay = await refreshAdvisories(database, ownerIdentity, token, api, now);
-    }
+  }
+  if (options.refreshAdvisories && !globalStopped && !advisoryHeld) {
+    const refreshed = await refreshAdvisories(database, ownerIdentity, token, api, now);
+    result.advisoriesRefreshed = refreshed.refreshed;
+    result.homeBarangay = refreshed.homeBarangay;
   }
   return result;
 }
@@ -160,6 +182,11 @@ function isLater(error: SyncError): boolean {
     error.code === 'CAPABILITY_REVOKED' ||
     error.code === 'NETWORK_UNAVAILABLE'
   );
+}
+
+/** Only auth expiry or no transport prevents unrelated guidance downloads in the same run. */
+function isGlobalStop(error: SyncError): boolean {
+  return error.code === 'AUTH_REQUIRED' || error.code === 'NETWORK_UNAVAILABLE';
 }
 
 function jitter(ms: number): number {
@@ -241,13 +268,17 @@ async function refreshAdvisories(
   token: string,
   api: FarmerCareApi,
   now: () => number,
-): Promise<string | null> {
+): Promise<{ refreshed: boolean; homeBarangay: string | null }> {
   try {
     const { items, homeBarangay } = await api.fetchAdvisories(token);
     replaceFarmerAdvisories(database, ownerIdentity, items, new Date(now()).toISOString());
-    return homeBarangay;
-  } catch {
+    return { refreshed: true, homeBarangay };
+  } catch (error: unknown) {
+    const syncError = toSyncError(error, { endpoint: 'report' });
+    if (syncError.retryAfterMs) {
+      advisoryHoldsUntilMs.set(ownerIdentity, now() + jitter(syncError.retryAfterMs));
+    }
     // Keep what is already downloaded; guidance reads offline.
-    return null;
+    return { refreshed: false, homeBarangay: null };
   }
 }

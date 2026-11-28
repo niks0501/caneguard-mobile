@@ -1,5 +1,6 @@
 import {
   deriveReportMeasurementsFromSurvey,
+  formatPercentAffected,
   hasOpenAffectedArea,
   isConfirmedZeroSurvey,
   measuredBoundaryArea,
@@ -285,10 +286,14 @@ describe('hasOpenAffectedArea', () => {
 });
 
 describe('percentAffected', () => {
-  // Intent: the phone and the office show the same share, to one decimal, and never invent one.
-  it('rounds the affected share of the plot to one decimal', () => {
+  // Intent: the phone and the office show the same share, keeping two decimals so small patches never collapse to 0%.
+  it('rounds the affected share of the plot to two decimals and keeps tiny patches strictly positive', () => {
     expect(percentAffected({ areaSqm: 10_000, affectedAreaSqm: 2_600 })).toBe(26);
-    expect(percentAffected({ areaSqm: 6_075.12, affectedAreaSqm: 412.5 })).toBe(6.8);
+    expect(percentAffected({ areaSqm: 6_075.12, affectedAreaSqm: 412.5 })).toBe(6.79);
+    // 40 m² in 10 ha (100,000 m²) is 0.04%, never rounded to 0%.
+    expect(percentAffected({ areaSqm: 100_000, affectedAreaSqm: 40 })).toBe(0.04);
+    // 1 m² in 10 ha is 0.001% — kept positive so display renders "<0.01%".
+    expect(percentAffected({ areaSqm: 100_000, affectedAreaSqm: 1 })).toBe(0.001);
     expect(percentAffected({ areaSqm: 100, affectedAreaSqm: 150 })).toBe(100);
   });
 
@@ -296,5 +301,14 @@ describe('percentAffected', () => {
     expect(percentAffected({ areaSqm: 10_000, affectedAreaSqm: null })).toBeNull();
     expect(percentAffected({ areaSqm: 0, affectedAreaSqm: 5 })).toBeNull();
     expect(percentAffected({ areaSqm: 10_000, affectedAreaSqm: 0 })).toBe(0);
+  });
+
+  it('formats confirmed zero, below-threshold positive shares, 0.04%, and 100% distinctly', () => {
+    expect(formatPercentAffected(0)).toBe('0%');
+    expect(formatPercentAffected(0, { positiveArea: true })).toBe('<0.01%');
+    expect(formatPercentAffected(0.001)).toBe('<0.01%');
+    expect(formatPercentAffected(0.04)).toBe('0.04%');
+    expect(formatPercentAffected(25)).toBe('25%');
+    expect(formatPercentAffected(100)).toBe('100%');
   });
 });

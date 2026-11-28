@@ -57,6 +57,7 @@ import { findOwnedFieldSurvey, listOwnedFieldSurveys } from '@/features/surveys/
 import { consumeReplacedReportSurvey } from '@/features/surveys/services/reportSurveyHandoff';
 import {
   deriveReportMeasurementsFromSurvey,
+  formatPercentAffected,
   hasOpenAffectedArea,
   planAttachedBoundarySend,
   surveyRevisionOf,
@@ -887,7 +888,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       }
     }
     measureTripRef.current = { clientUuid: target, created: clientUuid === null, away: false };
-    router.push({ pathname: '/field-survey', params: { surveyId: target, forReport: '1' } });
+    router.push({ pathname: '/field-survey', params: { surveyId: target, forReport: '1', reportId: report.data.id } });
   };
 
   const finishMeasureTripRef = useRef<() => void>(() => undefined);
@@ -925,7 +926,11 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
         FIELD_SURVEY_COPY.linkFilled(
           formatDecimalInput(derived.plotAreaHectares ?? 0),
           derived.affectedAreaHectares === null ? null : formatDecimalInput(derived.affectedAreaHectares),
-          derived.affectedPortionPercent === null ? null : formatDecimalInput(derived.affectedPortionPercent),
+          derived.affectedPortionPercent === null
+            ? null
+            : formatPercentAffected(derived.affectedPortionPercent, {
+                positiveArea: (derived.affectedAreaHectares ?? 0) > 0,
+              }),
         ),
         'success',
       );
@@ -3013,6 +3018,7 @@ function formatMeasurementSummary(
   value: number | null,
   provenance: MeasurementProvenance,
   unit: string,
+  options?: { positiveArea?: boolean },
 ): string {
   if (provenance === 'not_measured') {
     return 'Not measured';
@@ -3020,7 +3026,7 @@ function formatMeasurementSummary(
   if (value === null) {
     return 'Not provided';
   }
-  return unit === '%' ? `${value}%` : `${value} ${unit}`;
+  return unit === '%' ? formatPercentAffected(value, options) : `${value} ${unit}`;
 }
 
 function formatLocationSummary(fieldReport: FieldReport): string {
@@ -3133,6 +3139,7 @@ function FinalizedReportSummary({ fieldReport }: { fieldReport: FieldReport }) {
           fieldReport.affectedPortionPercent,
           fieldReport.affectedPortionMeasurement,
           '%',
+          { positiveArea: (fieldReport.affectedAreaHectares ?? 0) > 0 },
         )}
       />
       <EvidenceRow

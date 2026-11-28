@@ -7,6 +7,7 @@ import {
   measureSubdivisionSelection,
   MIN_SUBDIVISION_AREA_SQM,
   pointInPiece,
+  remapSelectedPieceIds,
   subdividePlot,
 } from '@/features/surveys/domain/plotSubdivision';
 import {
@@ -354,5 +355,57 @@ describe('Whole plot affected shortcut (D2-A)', () => {
     expect(applyWholePlotAffected(emptyShape(oversizedPlot), SPLIT_AT)).toMatchObject({
       ok: false,
     });
+  });
+});
+
+describe('remapSelectedPieceIds', () => {
+  // Regression for the 0.3 m cut drag that swapped P1/P2 labels from 8.4% to 91.7%.
+  it('follows the selected geometric side when dragging a cut swaps P1/P2 numbering', () => {
+    const plot: SurveyWaypoint[] = [
+      map(14.080, 120.600),
+      map(14.080, 120.601),
+      map(14.081, 120.601),
+      map(14.081, 120.600),
+    ];
+    const before = subdividePlot(plot, [[
+      { latitude: 14.0802, longitude: 120.6002 },
+      { latitude: 14.0803258006, longitude: 120.6001183041 },
+    ]], SPLIT_AT);
+    const after = subdividePlot(plot, [[
+      { latitude: 14.0802, longitude: 120.6002 },
+      { latitude: 14.0803243556, longitude: 120.6001161211 },
+    ]], SPLIT_AT);
+
+    expect(before.ok).toBe(true);
+    expect(after.ok).toBe(true);
+    if (!before.ok || !after.ok) return;
+
+    const smallBefore = before.pieces.find((p) => p.percentOfPlot < 20)!;
+    const smallAfter = after.pieces.find((p) => p.percentOfPlot < 20)!;
+    // Confirm the labels genuinely swapped between the two cuts.
+    expect(smallBefore.id).not.toBe(smallAfter.id);
+
+    const remapped = remapSelectedPieceIds([smallBefore], after.pieces);
+    expect(remapped).toEqual([smallAfter.id]);
+    const selectedAfter = after.pieces.find((p) => p.id === remapped[0])!;
+    expect(selectedAfter.percentOfPlot).toBeLessThan(20);
+  });
+
+  it('clears selection when a large cut jump makes the selected side ambiguous', () => {
+    const before = subdividePlot(SQUARE_PLOT, [[
+      { latitude: 14.099, longitude: 121.101 },
+      { latitude: 14.103, longitude: 121.101 },
+    ]], SPLIT_AT);
+    const after = subdividePlot(SQUARE_PLOT, [[
+      { latitude: 14.099, longitude: 121.1002 },
+      { latitude: 14.103, longitude: 121.1002 },
+    ]], SPLIT_AT);
+
+    expect(before.ok && after.ok).toBe(true);
+    if (!before.ok || !after.ok) return;
+
+    // Previously selected left 50% was shrunk to 10% in one jump (IoU < 0.5 against both new pieces).
+    const leftHalf = before.pieces.find((p) => p.labelPoint.longitude < 121.101)!;
+    expect(remapSelectedPieceIds([leftHalf], after.pieces)).toEqual([]);
   });
 });

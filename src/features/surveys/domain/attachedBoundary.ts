@@ -164,13 +164,27 @@ export function measuredBoundaryArea(row: AttachedBoundaryInput): MeasuredBounda
 }
 
 /**
- * The share of the plot the inspector drew as affected, to one decimal. Null while the affected
- * ground is unmeasured or the plot has no area; 0 for a confirmed "none found". Same rule as the
- * office, so both screens agree.
+ * The share of the plot the inspector drew as affected, keeping two decimals (matching
+ * reports.affected_portion_percent) and never collapsing a positive patch to 0.
+ * Null while the affected ground is unmeasured or the plot has no area; 0 only for
+ * a confirmed "none found". Same rule as the office, so both screens agree.
  */
 export function percentAffected(area: Pick<MeasuredBoundaryArea, 'affectedAreaSqm' | 'areaSqm'>): number | null {
   if (area.affectedAreaSqm === null || area.areaSqm <= 0) return null;
-  return Math.round(Math.min(100, (area.affectedAreaSqm / area.areaSqm) * 100) * 10) / 10;
+  if (area.affectedAreaSqm <= 0) return 0;
+  const raw = Math.min(100, (area.affectedAreaSqm / area.areaSqm) * 100);
+  if (raw < 0.01) return Math.max(0.0001, Math.round(raw * 10_000) / 10_000);
+  return Math.round(raw * 100) / 100;
+}
+
+/**
+ * Display label for a measured affected percentage: distinguishes confirmed 0%
+ * from a sub-0.01% positive patch (`<0.01%`) and formats ordinary shares to two decimals.
+ */
+export function formatPercentAffected(percent: number, options?: { positiveArea?: boolean }): string {
+  if (percent === 0) return options?.positiveArea ? '<0.01%' : '0%';
+  if (percent > 0 && percent < 0.01) return '<0.01%';
+  return `${Number(percent.toFixed(2))}%`;
 }
 
 /** True when affected-area points were drawn but never closed into an area, which is why the map reads "not measured". */

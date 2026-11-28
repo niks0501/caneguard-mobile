@@ -2224,7 +2224,7 @@ describe('FieldReportScreen', () => {
     expect(mockSave).toHaveBeenCalledWith({ fieldSurveyClientUuid: 'new-map-uuid' });
     expect(router.push).toHaveBeenCalledWith({
       pathname: '/field-survey',
-      params: { surveyId: 'new-map-uuid', forReport: '1' },
+      params: { surveyId: 'new-map-uuid', forReport: '1', reportId: '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e' },
     });
   });
 

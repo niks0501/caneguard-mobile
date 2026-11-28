@@ -460,4 +460,38 @@ describe('FieldSurveyScreen plot subdivision and whole-plot shortcut', () => {
     await waitFor(() => expect(areaText()).toMatch(/m² affected \(50\.0%\)/));
     expect(screen.getByTestId('field-survey.feedback')).toHaveTextContent(FIELD_SURVEY_COPY.divideApplied(1));
   });
+
+  it('keeps the selected side (never jumps to the opposite side) when dragging a cut swaps P1/P2 labels', async () => {
+    await renderWithGestures(<FieldSurveyScreen />);
+    await waitFor(() => expect(mockListSurveys).toHaveBeenCalled());
+    await drawSquarePlot();
+
+    await fireEvent.press(screen.getByTestId('field-survey.target-affected'));
+    await fireEvent.press(screen.getByTestId('field-survey.divide-plot'));
+
+    // Place a diagonal cut across the SW corner (x=100..260, y=100..240), select the smaller corner piece, then drag slightly.
+    await pressMap(100, 200);
+    await pressMap(140, 240);
+    await waitFor(() => expect(screen.getByTestId('field-survey.divide-piece.P1')).toBeTruthy());
+
+    const p1Text = String(screen.getByTestId('field-survey.divide-piece.P1').props.accessibilityLabel);
+    const p2Text = String(screen.getByTestId('field-survey.divide-piece.P2').props.accessibilityLabel);
+    const smallId = parseFloat(p1Text.match(/([\d.]+)%/)?.[1] ?? '100') < parseFloat(p2Text.match(/([\d.]+)%/)?.[1] ?? '100') ? 'P1' : 'P2';
+    const smallPctBefore = parseFloat((smallId === 'P1' ? p1Text : p2Text).match(/([\d.]+)%/)?.[1] ?? '0');
+    expect(smallPctBefore).toBeLessThan(20);
+
+    await fireEvent.press(screen.getByTestId(`field-survey.divide-piece.${smallId}`));
+    const drag = createGestureController(getByGestureTestId('field-survey.divide-handle.0.1.drag'));
+    await act(async () => {
+      drag.begin();
+      drag.activate();
+      drag.update({ translationX: 6, translationY: 0 });
+      drag.end();
+    });
+
+    // Selection must still represent the smaller corner (< 25%), never jumping to > 75%.
+    const selectedMatch = areaText().match(/selected \(([\d.]+)%\)/);
+    expect(selectedMatch).not.toBeNull();
+    expect(parseFloat(selectedMatch![1])).toBeLessThan(25);
+  });
 });

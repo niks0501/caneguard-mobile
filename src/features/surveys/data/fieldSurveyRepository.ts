@@ -3,10 +3,14 @@ import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { CaneGuardDatabase } from '@/database/database';
 import { StorageError, toStorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
-import { fieldSurveys, type FieldSurveyRow } from '@/database/schema';
+import { fieldReports, fieldSurveys, type FieldSurveyRow } from '@/database/schema';
 import type { AuthoringProvenance } from '@/features/auth/domain/sessionState';
 import type { MobileUserRole } from '@/features/auth/types';
-import { planAttachedBoundarySend } from '@/features/surveys/domain/attachedBoundary';
+import {
+  deriveReportMeasurementsFromSurvey,
+  planAttachedBoundarySend,
+  UNMEASURED_REPORT_MEASUREMENTS,
+} from '@/features/surveys/domain/attachedBoundary';
 import { boundaryCanDelete, boundaryCanEdit, boundaryCanSubmit, boundaryState } from '@/features/surveys/domain/boundaryState';
 import { SYNC_TRANSITIONS } from '@/features/sync/domain/outboxState';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
@@ -31,6 +35,15 @@ export interface FieldSurveyDraft {
    * is drawn; drawing one supersedes it. Never defaulted from empty polygons.
    */
   affectedZeroConfirmed?: boolean;
+  /**
+   * When this draft replaces a completed map attached to a Field Report, relink
+   * the draft report in the same SQLite transaction so a process kill cannot
+   * leave the report pointing at the old map.
+   */
+  relinkReport?: {
+    reportId?: string | null;
+    replacedSurveyUuid: string;
+  } | null;
 }
 
 /**
@@ -91,40 +104,67 @@ export async function saveFieldSurveyDraft(
   }
   try {
     const derived = derivedMeasurementColumns(input);
-    if (existing) {
-      database.update(fieldSurveys).set({
-        ...derived,
-        authorRole: input.authorRole,
-        districtCode: input.districtCode,
-        label: normalizeLabel(input.label),
-        ...(input.outlineFromRemoteId === undefined ? {} : { outlineFromRemoteId: input.outlineFromRemoteId }),
-        waypointsJson: JSON.stringify(input.waypoints),
-        affectedAreaPolygonsJson: JSON.stringify(input.affectedAreaPolygons ?? []),
-        affectedAreaWaypointsJson: JSON.stringify(input.affectedAreaWaypoints ?? []),
-        activeAffectedWaypointsJson: JSON.stringify(input.activeAffectedWaypoints ?? []),
-        updatedAt: new Date().toISOString(),
-      }).where(and(eq(fieldSurveys.clientUuid, input.clientUuid), eq(fieldSurveys.ownerIdentity, owner))).run();
-    } else {
-      database.insert(fieldSurveys).values({
-        ...derived,
-        clientUuid: input.clientUuid,
-        ownerIdentity: owner,
-        districtCode: input.districtCode,
-        label: normalizeLabel(input.label),
-        outlineFromRemoteId: input.outlineFromRemoteId ?? null,
-        waypointsJson: JSON.stringify(input.waypoints),
-        affectedAreaPolygonsJson: JSON.stringify(input.affectedAreaPolygons ?? []),
-        affectedAreaWaypointsJson: JSON.stringify(input.affectedAreaWaypoints ?? []),
-        activeAffectedWaypointsJson: JSON.stringify(input.activeAffectedWaypoints ?? []),
-        capturedAt: input.capturedAt,
-        status: 'draft',
-        authorRole: input.authorRole,
-        createdAt: input.capturedAt,
-        updatedAt: input.capturedAt,
-      }).run();
-    }
+    const saved = database.transaction((tx) => {
+      const now = new Date().toISOString();
+      if (existing) {
+        tx.update(fieldSurveys).set({
+          ...derived,
+          authorRole: input.authorRole,
+          districtCode: input.districtCode,
+          label: normalizeLabel(input.label),
+          ...(input.outlineFromRemoteId === undefined ? {} : { outlineFromRemoteId: input.outlineFromRemoteId }),
+          waypointsJson: JSON.stringify(input.waypoints),
+          affectedAreaPolygonsJson: JSON.stringify(input.affectedAreaPolygons ?? []),
+          affectedAreaWaypointsJson: JSON.stringify(input.affectedAreaWaypoints ?? []),
+          activeAffectedWaypointsJson: JSON.stringify(input.activeAffectedWaypoints ?? []),
+          updatedAt: now,
+        }).where(and(eq(fieldSurveys.clientUuid, input.clientUuid), eq(fieldSurveys.ownerIdentity, owner))).run();
+      } else {
+        tx.insert(fieldSurveys).values({
+          ...derived,
+          clientUuid: input.clientUuid,
+          ownerIdentity: owner,
+          districtCode: input.districtCode,
+          label: normalizeLabel(input.label),
+          outlineFromRemoteId: input.outlineFromRemoteId ?? null,
+          waypointsJson: JSON.stringify(input.waypoints),
+          affectedAreaPolygonsJson: JSON.stringify(input.affectedAreaPolygons ?? []),
+          affectedAreaWaypointsJson: JSON.stringify(input.affectedAreaWaypoints ?? []),
+          activeAffectedWaypointsJson: JSON.stringify(input.activeAffectedWaypoints ?? []),
+          capturedAt: input.capturedAt,
+          status: 'draft',
+          authorRole: input.authorRole,
+          createdAt: input.capturedAt,
+          updatedAt: input.capturedAt,
+        }).run();
+      }
+
+      const persisted = tx.select().from(fieldSurveys)
+        .where(and(eq(fieldSurveys.clientUuid, input.clientUuid), eq(fieldSurveys.ownerIdentity, owner)))
+        .get()!;
+
+      const relink = input.relinkReport;
+      if (relink?.replacedSurveyUuid && relink.replacedSurveyUuid !== input.clientUuid) {
+        const measurements = deriveReportMeasurementsFromSurvey(persisted) ?? UNMEASURED_REPORT_MEASUREMENTS;
+        const conditions = [
+          eq(fieldReports.submitterIdentity, owner),
+          eq(fieldReports.authoringState, 'draft'),
+          inArray(fieldReports.fieldSurveyClientUuid, [relink.replacedSurveyUuid, input.clientUuid]),
+        ];
+        if (relink.reportId) {
+          conditions.push(eq(fieldReports.id, relink.reportId));
+        }
+        tx.update(fieldReports).set({
+          fieldSurveyClientUuid: input.clientUuid,
+          ...measurements,
+          updatedAt: now,
+        }).where(and(...conditions)).run();
+      }
+
+      return persisted;
+    });
     emitSyncRecordsChanged();
-    return findOwnedFieldSurvey(database, input.clientUuid, owner)!;
+    return saved;
   } catch (error: unknown) {
     throw toStorageError(error, 'SAVE_TRANSACTION_FAILED', 'Saving this offline boundary failed.');
   }

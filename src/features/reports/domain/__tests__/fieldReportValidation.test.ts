@@ -206,9 +206,13 @@ describe('normalizeFieldReportDraftInput', () => {
       affectedPortionPercent: 100,
     });
 
+    // 0 is a confirmed "no affected area found" (D2-A); only a negative area is out of range.
+    expect(
+      normalizeFieldReportDraftInput({ affectedAreaHectares: 0, updatedAt: NOW }),
+    ).toMatchObject({ affectedAreaHectares: 0, affectedAreaMeasurement: 'measured' });
     expect(() =>
       normalizeFieldReportDraftInput({
-        affectedAreaHectares: 0,
+        affectedAreaHectares: -0.0001,
         updatedAt: NOW,
       }),
     ).toThrow(expect.objectContaining({ code: 'INVALID_FIELD_REPORT' }));
@@ -235,6 +239,38 @@ describe('normalizeFieldReportDraftInput', () => {
         affectedPortionPercent: 101,
         updatedAt: NOW,
       }),
+    ).toThrow(expect.objectContaining({ code: 'INVALID_FIELD_REPORT' }));
+  });
+
+  it('keeps total plot area apart from the affected area and pairs it with its measurement', () => {
+    expect(
+      normalizeFieldReportDraftInput({ plotAreaHectares: 1.2, updatedAt: NOW }),
+    ).toMatchObject({ plotAreaHectares: 1.2, plotAreaMeasurement: 'measured' });
+    expect(
+      normalizeFieldReportDraftInput({ plotAreaHectares: null, plotAreaMeasurement: 'not_measured', updatedAt: NOW }),
+    ).toMatchObject({ plotAreaHectares: null, plotAreaMeasurement: 'not_measured' });
+    // Unlike the affected area, a plot of 0 ha is never valid.
+    expect(() =>
+      normalizeFieldReportDraftInput({ plotAreaHectares: 0, updatedAt: NOW }),
+    ).toThrow(expect.objectContaining({ code: 'INVALID_FIELD_REPORT' }));
+    expect(() =>
+      normalizeFieldReportDraftInput({ plotAreaHectares: 100_000_000, updatedAt: NOW }),
+    ).toThrow(expect.objectContaining({ code: 'INVALID_FIELD_REPORT' }));
+  });
+
+  it('allows a measured affected area of 0 at finalization and rejects it without a measured pairing', () => {
+    const finalizeBase = {
+      affectedPortionPercent: 0,
+      barangay: 'Wawa',
+      farmerOrFarmOwnerName: 'Maria',
+      submittedAt: NOW,
+      updatedAt: NOW,
+    };
+    expect(
+      normalizeFinalizeFieldReportInput({ ...finalizeBase, affectedAreaHectares: 0, affectedAreaMeasurement: 'measured' }),
+    ).toMatchObject({ affectedAreaHectares: 0, affectedAreaMeasurement: 'measured', plotAreaHectares: null, plotAreaMeasurement: 'not_measured' });
+    expect(() =>
+      normalizeFinalizeFieldReportInput({ ...finalizeBase, affectedAreaHectares: 0, affectedAreaMeasurement: 'not_measured' }),
     ).toThrow(expect.objectContaining({ code: 'INVALID_FIELD_REPORT' }));
   });
 

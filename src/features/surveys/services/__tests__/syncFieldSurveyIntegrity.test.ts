@@ -1,3 +1,4 @@
+import { fieldSurveyMeasurementMigration } from '../../../../../test/fieldSurveyMeasurementMigration';
 import { readFileSync } from 'node:fs';
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import { eq } from 'drizzle-orm';
@@ -31,6 +32,7 @@ function openDatabase(): { database: CaneGuardDatabase; native: DatabaseSync } {
   ]) {
     native.exec(readFileSync(`drizzle/${migration}`, 'utf8').replaceAll('--> statement-breakpoint', ''));
   }
+  native.exec(fieldSurveyMeasurementMigration());
   const client = {
     prepareSync(sql: string) {
       const statement = native.prepare(sql);

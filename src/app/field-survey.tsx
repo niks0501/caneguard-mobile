@@ -42,6 +42,7 @@ import { FIELD_NAME_MAX_LENGTH, findOwnedFieldSurvey, listEarlierMapRows, listOw
 import { viewportPointFromPressEvent } from '@/features/reports/components/online-map-picker';
 import { useManualMapGestures } from '@/features/reports/components/use-manual-map-gestures';
 import { useTileSources } from '@/features/reports/tiles/useTileSources';
+import { isConfirmedZeroSurvey } from '@/features/surveys/domain/attachedBoundary';
 import { describeOutsidePlot, measureAffectedAreas, snapAffectedAreaWaypoints, validateAffectedAreaWaypoints, validateSurveyPolygon, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { LOADING_SCREEN, NEW_BOUNDARY_SCREEN, screenCanEdit, screenCanSubmit, screenIsStoredOrMissing, screenNeedsFreshIdentity, screenStateForRow, statusStripFor, WAITING_TO_SEND_SCREEN, type ScreenState } from '@/features/surveys/domain/screenMode';
 import { FIELD_SURVEY_SYNC_COPY, SYNC_TONE_COLOR } from '@/features/sync/utils/syncStatusCopy';
@@ -287,6 +288,8 @@ export default function FieldSurveyScreen() {
   const [history, setHistory] = useState<DrawingShape[]>([]);
   const { waypoints, affectedAreas, affectedAreaWaypointSets, affectedWaypoints } = shape;
   const [drawingAffectedArea, setDrawingAffectedArea] = useState(false);
+  // The inspector checked the plot and found nothing affected. Only ever set by their explicit choice, never from empty polygons.
+  const [affectedZeroConfirmed, setAffectedZeroConfirmed] = useState(false);
   const [selected, setSelected] = useState<PointRef | null>(null);
   const [selectedArea, setSelectedArea] = useState<number | null>(null);
   const [myLocation, setMyLocation] = useState<MapCoordinate | null>(null);
@@ -397,6 +400,8 @@ export default function FieldSurveyScreen() {
   const setShape = useCallback((next: DrawingShape) => {
     shapeRef.current = next;
     setShapeState(next);
+    // Drawing an affected area supersedes a "none found" confirmation, so the two can never coexist.
+    if (next.affectedAreas.length > 0 || next.affectedWaypoints.length > 0) setAffectedZeroConfirmed(false);
   }, []);
   // Opening a screen is not an edit: only a change to the draft makes it worth writing.
   const [hasEdited, setHasEdited] = useState(false);
@@ -467,9 +472,11 @@ export default function FieldSurveyScreen() {
   }, [resumeOffer]);
   const validation = useMemo(() => validateSurveyWaypoints(waypoints), [waypoints]);
   const validityMarks = useMemo(() => assessValidity(waypoints, affectedAreas), [waypoints, affectedAreas]);
+  // Drawing an affected area supersedes a "none found" confirmation, so it can never survive alongside one.
+  const zeroConfirmedNow = affectedZeroConfirmed && affectedAreas.length === 0 && affectedWaypoints.length === 0;
   const affectedMeasurement = useMemo(() => validation.valid
-    ? measureAffectedAreas(validation.polygon, affectedAreas)
-    : null, [affectedAreas, validation]);
+    ? measureAffectedAreas(validation.polygon, affectedAreas, { confirmedZero: zeroConfirmedNow })
+    : null, [affectedAreas, validation, zeroConfirmedNow]);
   // The affected-area rejection shown after a refused submit is stale once the areas are repaired.
   const submitRejectionRef = useRef<string | null>(null);
   useEffect(() => {
@@ -513,6 +520,7 @@ export default function FieldSurveyScreen() {
         setClientUuid(previous.clientUuid);
         setLabel(previous.label ?? '');
         setOutlineFromRemoteId(previous.outlineFromRemoteId ?? null);
+        setAffectedZeroConfirmed(isConfirmedZeroSurvey(previous));
         try {
           const restoredPlot = finiteWaypoints(JSON.parse(previous.waypointsJson));
           const restoredAreas = JSON.parse(previous.affectedAreaPolygonsJson ?? '[]') as SurveyPolygon[];
@@ -578,6 +586,7 @@ export default function FieldSurveyScreen() {
         affectedAreaPolygons: affectedAreas,
         affectedAreaWaypoints: affectedAreaWaypointSets,
         activeAffectedWaypoints: affectedWaypoints,
+        affectedZeroConfirmed: zeroConfirmedNow,
         capturedAt: new Date().toISOString(),
       });
     }).then(() => {
@@ -586,7 +595,7 @@ export default function FieldSurveyScreen() {
       if (!cancelled) setSaveState('failed');
     });
     return () => { cancelled = true; };
-  }, [affectedAreas, affectedAreaWaypointSets, affectedWaypoints, canAuthorSurvey, clientUuid, database, districtCode, editable, hasEdited, label, loaded, outlineFromRemoteId, ready, saveAttempt, session?.user.role, session?.user.uuid, waypoints]);
+  }, [affectedAreas, affectedAreaWaypointSets, affectedWaypoints, canAuthorSurvey, clientUuid, database, districtCode, editable, hasEdited, label, loaded, outlineFromRemoteId, ready, saveAttempt, session?.user.role, session?.user.uuid, waypoints, zeroConfirmedNow]);
 
   function captureTargetForNewPoint(): WaypointCaptureTarget {
     const replace = selected ? pointOf(shapeRef.current, selected) : null;
@@ -1243,6 +1252,14 @@ export default function FieldSurveyScreen() {
     setSelected(null);
   }
 
+  // "No affected area found": an explicit measured zero. Tapping again returns to not measured.
+  function toggleAffectedZero() {
+    if (controlsLocked || !validation.valid || affectedAreas.length > 0 || affectedWaypoints.length > 0) return;
+    stopWalk();
+    setAffectedZeroConfirmed((current) => !current);
+    markEdited();
+  }
+
   // Starts a NEW map from an earlier plot edge: the outline is copied, the damage never is.
   function applyOutline(source: { name: string | null; remoteId: string | null; waypoints: SurveyWaypoint[] }) {
     stopWalk();
@@ -1251,6 +1268,7 @@ export default function FieldSurveyScreen() {
     setOutlineFromRemoteId(source.remoteId);
     if (source.name && !label.trim()) setLabel(source.name);
     setDrawingAffectedArea(false);
+    setAffectedZeroConfirmed(false);
     setSelected(null);
     setSelectedArea(null);
     setSyncMessage(FIELD_SURVEY_COPY.outlineUsed);
@@ -1336,6 +1354,7 @@ export default function FieldSurveyScreen() {
     setClientUuid(nextUuid);
     setShape(nextShape);
     setHistory([]);
+    setAffectedZeroConfirmed(false);
     setDrawingAffectedArea(true);
     setSelected(null);
     setSelectedArea(null);
@@ -1358,6 +1377,7 @@ export default function FieldSurveyScreen() {
     setMeasuredBeforeDismissed(false);
     setResumeOffer(null);
     setDrawingAffectedArea(false);
+    setAffectedZeroConfirmed(false);
     setClientUuid(randomUUID());
     setShape(EMPTY_SHAPE);
     setHistory([]);
@@ -1475,10 +1495,13 @@ export default function FieldSurveyScreen() {
   // A report can use the map once the plot is measured, nothing is left open, and the draft is saved.
   const reportReady = !screenCanEdit(mode)
     || (validation.valid && affectedWaypoints.length === 0 && affectedMeasurement?.valid === true && saveState === 'saved');
-  const affectedPercent = validation.valid && affectedMeasurement?.valid && affectedMeasurement.areaSqm > 0
-    ? ` (${((affectedMeasurement.areaSqm / validation.areaSqm) * 100).toFixed(1)}%)`
+  const measuredAffectedSqm = validation.valid && affectedMeasurement?.valid ? affectedMeasurement.areaSqm : null;
+  const affectedPercent = validation.valid && measuredAffectedSqm !== null && measuredAffectedSqm > 0
+    ? ` (${((measuredAffectedSqm / validation.areaSqm) * 100).toFixed(1)}%)`
     : '';
-  const areaReadout = `${screenValidation}${validation.valid && affectedMeasurement?.valid && affectedAreas.length > 0 ? ` · ${affectedMeasurement.areaSqm.toFixed(0)} m² affected${affectedPercent}` : affectedMeasurement && !affectedMeasurement.valid ? ` · ${affectedMeasurement.error.message}` : ''}`;
+  const areaReadout = `${screenValidation}${measuredAffectedSqm !== null && affectedAreas.length > 0 ? ` · ${measuredAffectedSqm.toFixed(0)} m² affected${affectedPercent}` : measuredAffectedSqm === 0 ? ` · ${FIELD_SURVEY_COPY.noAffectedFoundReadout}` : affectedMeasurement && !affectedMeasurement.valid ? ` · ${affectedMeasurement.error.message}` : ''}`;
+  // Offered once the plot is measured and nothing affected is drawn or being drawn.
+  const canConfirmNoAffected = validation.valid && !expanded && !controlsLocked && affectedAreas.length === 0 && affectedWaypoints.length === 0 && !drawingAffectedArea;
   // One message on the map: what to tap next while drawing, otherwise what state the boundary is in.
   // Open affected points are never measured: say so after a Stop, a reopened draft or tapped points, until the area is closed.
   const openAreaNotice = !walking && drawingAffectedArea && affectedWaypoints.length >= 3 ? FIELD_SURVEY_COPY.affectedAreaStillOpen : null;
@@ -1757,6 +1780,14 @@ export default function FieldSurveyScreen() {
               </AppButton>
             </View>
           ) : null}
+          {canConfirmNoAffected ? (
+            <View testID="field-survey.no-affected" style={[styles.completedPlotCard, { backgroundColor: theme.surfaceElevated, borderColor: zeroConfirmedNow ? theme.success : theme.border }]}>
+              <Text style={[styles.help, { color: theme.textSecondary }]}>{zeroConfirmedNow ? FIELD_SURVEY_COPY.noAffectedFoundConfirmed : FIELD_SURVEY_COPY.noAffectedFoundBody}</Text>
+              <AppButton testID="field-survey.no-affected.action" variant={zeroConfirmedNow ? 'primary' : 'secondary'} selected={zeroConfirmedNow} leadingIcon={zeroConfirmedNow ? 'check-square' : 'square'} disabled={editLocked} onPress={toggleAffectedZero}>
+                {FIELD_SURVEY_COPY.noAffectedFoundAction}
+              </AppButton>
+            </View>
+          ) : null}
           <View accessibilityRole="radiogroup" style={styles.segmented}>
             <AppButton testID="field-survey.target-plot" leadingIcon="square" variant="secondary" selected={!drawingAffectedArea} style={[styles.toolButton, !drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={editLocked} onPress={() => switchDrawingTarget(false)}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
             <AppButton testID="field-survey.target-affected" leadingIcon="alert-triangle" variant="secondary" selected={drawingAffectedArea} style={[styles.toolButton, drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.warning, borderWidth: 2 }]} disabled={editLocked} onPress={() => switchDrawingTarget(true)}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
@@ -1838,7 +1869,7 @@ export default function FieldSurveyScreen() {
               <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.qualityPlotArea}: {Math.round(validation.areaSqm).toLocaleString()} m² · {FIELD_SURVEY_COPY.qualityPoints}: {quality.pointCount}</Text>
               <Text style={[styles.help, { color: badge === 'good' || badge === 'drawn_on_map' ? theme.success : theme.warning }]}>{FIELD_SURVEY_COPY.qualityState[badge]}</Text>
               {quality.worst ? <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.qualityWorst(quality.worst.index + 1, quality.worst.accuracyMeters)}</Text> : null}
-              {affectedMeasurement?.valid ? <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.qualityAffected(affectedMeasurement.areaSqm, (affectedMeasurement.areaSqm / validation.areaSqm) * 100)}</Text> : null}
+              {affectedMeasurement?.valid ? <Text testID="field-survey.quality-affected" style={[styles.help, { color: theme.textSecondary }]}>{measuredAffectedSqm === null ? FIELD_SURVEY_COPY.qualityAffectedNotMeasured : measuredAffectedSqm === 0 ? FIELD_SURVEY_COPY.noAffectedFoundReadout : FIELD_SURVEY_COPY.qualityAffected(measuredAffectedSqm, (measuredAffectedSqm / validation.areaSqm) * 100)}</Text> : null}
               {badge === 'low_accuracy' && quality.worst ? <AppButton variant="secondary" leadingIcon="crosshair" disabled={gpsBusy || editLocked} busy={gpsBusy} onPress={() => { const worst = quality.worst; if (worst) void recaptureWorstPoint(waypoints[worst.index]); }}>{FIELD_SURVEY_COPY.recapturePoint(quality.worst.index + 1)}</AppButton> : null}
             </View>
           ) : null}

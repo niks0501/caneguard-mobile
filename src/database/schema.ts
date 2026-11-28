@@ -528,6 +528,10 @@ export const fieldReports = sqliteTable(
     sugarcaneVariety: text('sugarcane_variety'),
     cropAge: text('crop_age'),
     caneClass: text('cane_class'),
+    /** Total plot area in hectares, kept apart from the affected ground area (D1-A). */
+    plotAreaHectares: real('plot_area_hectares'),
+    plotAreaMeasurement: text('plot_area_measurement')
+      .$type<MeasurementProvenance>(),
     affectedAreaHectares: real('affected_area_hectares'),
     affectedAreaMeasurement: text('affected_area_measurement')
       .$type<MeasurementProvenance>(),
@@ -651,7 +655,22 @@ export const fieldReports = sqliteTable(
     ),
     check(
       'field_reports_affected_area_check',
-      sql`${table.affectedAreaHectares} is null or ${table.affectedAreaHectares} > 0`,
+      // 0 is a confirmed "no affected area found"; unmeasured stays null.
+      sql`${table.affectedAreaHectares} is null or ${table.affectedAreaHectares} >= 0`,
+    ),
+    check(
+      'field_reports_plot_area_check',
+      sql`${table.plotAreaHectares} is null or ${table.plotAreaHectares} > 0`,
+    ),
+    check(
+      'field_reports_plot_area_measurement_check',
+      sql`(
+        ${table.plotAreaMeasurement} = 'measured' and ${table.plotAreaHectares} is not null
+      ) or (
+        ${table.plotAreaMeasurement} = 'not_measured' and ${table.plotAreaHectares} is null
+      ) or (
+        ${table.plotAreaMeasurement} is null and ${table.plotAreaHectares} is null
+      )`,
     ),
     check(
       'field_reports_affected_area_measurement_check',
@@ -706,6 +725,11 @@ export const fieldSurveys = sqliteTable(
     areaSqm: real('area_sqm'),
     affectedAreaPolygonsJson: text('affected_area_polygons_json'),
     affectedAreaSqm: real('affected_area_sqm'),
+    /**
+     * Whether the affected ground was assessed. Null on rows written before this column
+     * existed: `[]` + 0 there is read as not_measured, since no earlier build could confirm zero.
+     */
+    affectedAreaMeasurement: text('affected_area_measurement').$type<MeasurementProvenance>(),
     affectedAreaWaypointsJson: text('affected_area_waypoints_json'),
     activeAffectedWaypointsJson: text('active_affected_waypoints_json'),
     measurementProvenanceJson: text('measurement_provenance_json'),

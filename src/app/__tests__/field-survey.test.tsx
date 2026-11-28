@@ -1087,3 +1087,64 @@ describe('completed whole-plot transition & recovery', () => {
     expect(screen.queryByTestId('field-survey.feedback')).toBeNull();
   });
 });
+
+// ---- Explicit "no affected area found" (D2-A) ---------------------------------------------------------
+// Intent: a plot-only map reads Not measured everywhere; zero is only ever the inspector's explicit choice.
+it('reads Not measured for a plot-only map and offers an explicit no-affected-area choice', async () => {
+  mockListSurveys.mockReturnValue([draftRow()]);
+  await renderOpen();
+  await waitFor(() => expect(submitDisabled()).toBe(false));
+
+  // The More panel never shows the old "0 m² affected (0.0%)" for a plot that was only outlined.
+  expect(screen.getByTestId('field-survey.quality-affected')).toHaveTextContent(FIELD_SURVEY_COPY.qualityAffectedNotMeasured);
+  expect(screen.queryByText(/0 m² affected/)).toBeNull();
+  expect(screen.getByTestId('field-survey.area').props.children.toString()).not.toMatch(/affected/);
+  expect(screen.getByTestId('field-survey.no-affected.action')).toHaveTextContent(FIELD_SURVEY_COPY.noAffectedFoundAction);
+
+  // Nothing was chosen, so the draft is saved as not confirmed and an unfinished plot-only map submits as null.
+  await waitFor(() => expect(mockSaveDraft).not.toHaveBeenCalled());
+  await fireEvent.press(submitButton());
+  await waitFor(() => expect(mockMarkPending).toHaveBeenCalledTimes(1));
+  const args = mockMarkPending.mock.calls[0];
+  expect(args[7]).toEqual([]);
+  expect(args[8]).toBeNull();
+});
+
+it('confirms no affected area as 0 ha and 0%, saves it with the draft and submits a measured zero', async () => {
+  mockListSurveys.mockReturnValue([draftRow()]);
+  await renderOpen();
+  await waitFor(() => expect(submitDisabled()).toBe(false));
+
+  await fireEvent.press(screen.getByTestId('field-survey.no-affected.action'));
+
+  await waitFor(() => expect(mockSaveDraft).toHaveBeenCalled());
+  expect(mockSaveDraft.mock.calls.at(-1)?.[1]).toMatchObject({ affectedZeroConfirmed: true, affectedAreaPolygons: [] });
+  expect(screen.getByTestId('field-survey.area').props.children.toString()).toContain(FIELD_SURVEY_COPY.noAffectedFoundReadout);
+  expect(screen.getByTestId('field-survey.quality-affected')).toHaveTextContent(FIELD_SURVEY_COPY.noAffectedFoundReadout);
+
+  await fireEvent.press(submitButton());
+  await waitFor(() => expect(mockMarkPending).toHaveBeenCalledTimes(1));
+  expect(mockMarkPending.mock.calls[0][7]).toEqual([]);
+  expect(mockMarkPending.mock.calls[0][8]).toBe(0);
+});
+
+it('returns to Not measured when the no-affected-area choice is taken back', async () => {
+  mockListSurveys.mockReturnValue([draftRow({ affectedAreaMeasurement: 'measured', affectedAreaSqm: 0 })]);
+  await renderOpen();
+  await waitFor(() => expect(submitDisabled()).toBe(false));
+  // A saved confirmation is restored when the draft is reopened.
+  expect(screen.getByTestId('field-survey.quality-affected')).toHaveTextContent(FIELD_SURVEY_COPY.noAffectedFoundReadout);
+
+  await fireEvent.press(screen.getByTestId('field-survey.no-affected.action'));
+  await waitFor(() => expect(mockSaveDraft).toHaveBeenCalled());
+  expect(mockSaveDraft.mock.calls.at(-1)?.[1]).toMatchObject({ affectedZeroConfirmed: false });
+  expect(screen.getByTestId('field-survey.quality-affected')).toHaveTextContent(FIELD_SURVEY_COPY.qualityAffectedNotMeasured);
+});
+
+// Intent: an older draft that stored a forced 0 is not a confirmed zero.
+it('does not treat an older stored 0 on a plot-only draft as a confirmed zero', async () => {
+  mockListSurveys.mockReturnValue([draftRow({ affectedAreaSqm: 0 })]);
+  await renderOpen();
+  await waitFor(() => expect(submitDisabled()).toBe(false));
+  expect(screen.getByTestId('field-survey.quality-affected')).toHaveTextContent(FIELD_SURVEY_COPY.qualityAffectedNotMeasured);
+});

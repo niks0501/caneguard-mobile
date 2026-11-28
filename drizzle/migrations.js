@@ -44,6 +44,7 @@ import m0039 from './0039_field_map_label_outline.sql';
 import m0040 from './0040_aerial_check_brief.sql';
 import m0041 from './0041_aerial_check_outbox.sql';
 import m0042 from './0042_farmer_care_loop.sql';
+import m0043 from './0043_measured_zero_plot_area.sql';
 
   export default {
     journal,
@@ -90,7 +91,8 @@ m0038,
 m0039,
 m0040,
 m0041,
-m0042
+m0042,
+m0043
     }
   }
   

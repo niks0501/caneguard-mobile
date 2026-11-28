@@ -104,6 +104,19 @@ describe('field survey geometry', () => {
     expect(measureAffectedAreas(plot, [inside]).valid).toBe(true);
   });
 
+  // Intent: no affected polygon means the affected ground was not measured; zero needs an explicit confirmation.
+  it('reports no affected polygons as not measured, and zero only when confirmed', () => {
+    const plot = { type: 'Polygon' as const, coordinates: [[[120, 14], [120.004, 14], [120.004, 14.004], [120, 14.004], [120, 14]]] };
+    expect(measureAffectedAreas(plot, [])).toMatchObject({ valid: true, areaSqm: null, measurement: 'not_measured' });
+    expect(measureAffectedAreas(plot, [], { confirmedZero: false })).toMatchObject({ areaSqm: null, measurement: 'not_measured' });
+    expect(measureAffectedAreas(plot, [], { confirmedZero: true })).toMatchObject({ valid: true, areaSqm: 0, measurement: 'measured' });
+    // A drawn area is measured whatever was confirmed before.
+    const inside = { type: 'Polygon' as const, coordinates: [[[120, 14.0002], [120.0008, 14.0002], [120.0008, 14.0008], [120, 14.0008], [120, 14.0002]]] };
+    const drawn = measureAffectedAreas(plot, [inside], { confirmedZero: true });
+    expect(drawn).toMatchObject({ valid: true, measurement: 'measured' });
+    expect(drawn.valid && drawn.areaSqm).toBeGreaterThan(0);
+  });
+
   it('keeps affected-area waypoint provenance aligned with its polygon', () => {
     const captured = waypoints([[120, 14], [120.001, 14], [120.001, 14.001]]);
     const derived = validateSurveyWaypoints(captured);

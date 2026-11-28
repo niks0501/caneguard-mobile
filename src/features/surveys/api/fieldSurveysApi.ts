@@ -35,7 +35,10 @@ export interface SubmitFieldSurveyPayload {
   authorization_basis?: 'verified' | 'carryover';
   capabilities_verified_at?: string;
   affected_area_polygons: SurveyPolygon[];
-  affected_area_sqm: number;
+  /** Null while the affected ground is unmeasured; 0 only for a confirmed "no affected area found". */
+  affected_area_sqm: number | null;
+  /** Pairs with `affected_area_sqm`: `not_measured` sends null, `measured` sends the figure (0 allowed). */
+  affected_area_measurement: 'measured' | 'not_measured';
   measurement_provenance: FieldSurveyMeasurementProvenance;
   captured_at: string;
   client_uuid: string;

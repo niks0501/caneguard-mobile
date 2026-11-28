@@ -2,6 +2,7 @@ import { outlineSourceId } from '@/features/surveys/domain/outlineReuse';
 import type { CaneGuardDatabase } from '@/database/database';
 import { findOwnedFieldSurvey, updateFieldSurveySyncResult } from '@/features/surveys/data/fieldSurveyRepository';
 import { FieldSurveyValidationError, submitFieldSurvey, type FieldSurveyAffectedAreaWaypointProvenance, type FieldSurveyMeasurementProvenance } from '@/features/surveys/api/fieldSurveysApi';
+import { isConfirmedZeroSurvey } from '@/features/surveys/domain/attachedBoundary';
 import { measureAffectedAreas, validateAffectedAreaWaypoints, validateSurveyPolygon, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { SyncError, toSyncError } from '@/features/sync/errors/syncErrors';
 import type { SyncResult } from '@/features/sync/services/syncFieldReport';
@@ -47,11 +48,12 @@ export async function syncFieldSurvey(options: {
     return rejectInvalidLocalRecord(options, 'The saved boundary geometry is invalid. Recreate the boundary before syncing.');
   }
   const plotMeasurement = validateSurveyPolygon(polygon);
-  const affectedMeasurement = measureAffectedAreas(polygon, affectedAreaPolygons);
+  // Older rows stored a forced 0 for a plot-only survey; only an explicit confirmation keeps a zero.
+  const affectedMeasurement = measureAffectedAreas(polygon, affectedAreaPolygons, { confirmedZero: isConfirmedZeroSurvey(row) });
   const waypointProvenance = validateAffectedAreaWaypoints(affectedAreaPolygons, affectedAreaWaypoints);
   if (!plotMeasurement.valid || !affectedMeasurement.valid || !waypointProvenance.valid ||
     Math.abs(plotMeasurement.areaSqm - row.areaSqm) > Math.max(0.01, row.areaSqm * 1e-10) ||
-    Math.abs(affectedMeasurement.areaSqm - (row.affectedAreaSqm ?? 0)) > Math.max(0.01, (row.affectedAreaSqm ?? 0) * 1e-10)) {
+    !affectedAreaMatchesRow(affectedMeasurement.areaSqm, row.affectedAreaSqm)) {
     return rejectInvalidLocalRecord(options, 'The saved polygon measurements do not match their boundaries. Recreate the boundary before syncing.');
   }
   let measurementProvenance: Omit<FieldSurveyMeasurementProvenance, 'affected_area_waypoint_provenance'>;
@@ -77,7 +79,8 @@ export async function syncFieldSurvey(options: {
           polygon,
           area_sqm: row.areaSqm,
           affected_area_polygons: affectedAreaPolygons,
-          affected_area_sqm: row.affectedAreaSqm ?? 0,
+          affected_area_sqm: affectedMeasurement.areaSqm,
+          affected_area_measurement: affectedMeasurement.measurement,
           measurement_provenance: {
             ...measurementProvenance,
             affected_area_waypoint_provenance: toWireAffectedAreaWaypointProvenance(affectedAreaWaypoints),
@@ -123,6 +126,13 @@ export async function syncFieldSurvey(options: {
     });
     return { status: 'failed', error: syncError };
   }
+}
+
+/** The stored affected figure matches the geometry; a legacy forced 0 on a plot-only row is not a mismatch. */
+function affectedAreaMatchesRow(measuredSqm: number | null, storedSqm: number | null): boolean {
+  if (measuredSqm === null) return storedSqm === null || storedSqm === 0;
+  if (storedSqm === null) return false;
+  return Math.abs(measuredSqm - storedSqm) <= Math.max(0.01, storedSqm * 1e-10);
 }
 
 function rejectInvalidLocalRecord(

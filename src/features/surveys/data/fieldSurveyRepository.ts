@@ -10,7 +10,7 @@ import { planAttachedBoundarySend } from '@/features/surveys/domain/attachedBoun
 import { boundaryCanDelete, boundaryCanEdit, boundaryCanSubmit, boundaryState } from '@/features/surveys/domain/boundaryState';
 import { SYNC_TRANSITIONS } from '@/features/sync/domain/outboxState';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
-import { measureAffectedAreas, validateAffectedAreaWaypoints, validateSurveyPolygon, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+import { measureAffectedAreas, validateAffectedAreaWaypoints, validateSurveyPolygon, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 
 export interface FieldSurveyDraft {
   authorRole: MobileUserRole;
@@ -26,6 +26,46 @@ export interface FieldSurveyDraft {
   affectedAreaPolygons?: SurveyPolygon[];
   affectedAreaWaypoints?: SurveyWaypoint[][];
   activeAffectedWaypoints?: SurveyWaypoint[];
+  /**
+   * The inspector confirmed "no affected area found". Only meaningful while no affected polygon
+   * is drawn; drawing one supersedes it. Never defaulted from empty polygons.
+   */
+  affectedZeroConfirmed?: boolean;
+}
+
+/**
+ * The measurement columns a draft's geometry implies: the plot outline and area, the affected
+ * area (null while unmeasured) and its measured / not-measured state. Recomputed on every draft
+ * save so an edit can never leave the figures of an earlier shape behind; an unusable shape
+ * clears them instead.
+ */
+function derivedMeasurementColumns(input: FieldSurveyDraft): {
+  affectedAreaMeasurement: 'measured' | 'not_measured';
+  affectedAreaSqm: number | null;
+  areaSqm: number | null;
+  measurementProvenanceJson: string | null;
+  polygonJson: string | null;
+} {
+  const cleared = {
+    affectedAreaMeasurement: 'not_measured' as const,
+    affectedAreaSqm: null,
+    areaSqm: null,
+    measurementProvenanceJson: null,
+    polygonJson: null,
+  };
+  const plot = validateSurveyWaypoints(input.waypoints);
+  if (!plot.valid) return cleared;
+  const affected = measureAffectedAreas(plot.polygon, input.affectedAreaPolygons ?? [], {
+    confirmedZero: input.affectedZeroConfirmed === true,
+  });
+  if (!affected.valid) return { ...cleared, areaSqm: plot.areaSqm, polygonJson: JSON.stringify(plot.polygon) };
+  return {
+    affectedAreaMeasurement: affected.measurement,
+    affectedAreaSqm: affected.areaSqm,
+    areaSqm: plot.areaSqm,
+    measurementProvenanceJson: JSON.stringify(affected.provenance),
+    polygonJson: JSON.stringify(plot.polygon),
+  };
 }
 
 /** The longest field name the office accepts. */
@@ -50,8 +90,10 @@ export async function saveFieldSurveyDraft(
     throw new StorageError('UPDATE_FAILED', 'A submitted field survey cannot be edited.');
   }
   try {
+    const derived = derivedMeasurementColumns(input);
     if (existing) {
       database.update(fieldSurveys).set({
+        ...derived,
         authorRole: input.authorRole,
         districtCode: input.districtCode,
         label: normalizeLabel(input.label),
@@ -64,6 +106,7 @@ export async function saveFieldSurveyDraft(
       }).where(and(eq(fieldSurveys.clientUuid, input.clientUuid), eq(fieldSurveys.ownerIdentity, owner))).run();
     } else {
       database.insert(fieldSurveys).values({
+        ...derived,
         clientUuid: input.clientUuid,
         ownerIdentity: owner,
         districtCode: input.districtCode,
@@ -132,7 +175,8 @@ export function markFieldSurveyPending(
   areaSqm: number,
   capturedAt: string,
   affectedAreaPolygons: SurveyPolygon[] = [],
-  affectedAreaSqm = 0,
+  /** Null while only the plot was measured; 0 only for a confirmed "no affected area found". */
+  affectedAreaSqm: number | null = null,
   affectedAreaWaypoints: SurveyWaypoint[][] = [],
   provenance: AuthoringProvenance | null = null,
 ): void {
@@ -153,8 +197,12 @@ export function markFieldSurveyPending(
   if (!plotMeasurement.valid || !Number.isFinite(areaSqm) || areaSqm <= 0 || Math.abs(plotMeasurement.areaSqm - areaSqm) > Math.max(0.01, areaSqm * 1e-10)) {
     throw new StorageError('INVALID_FIELD_REPORT', 'The boundary has no valid measured area.');
   }
-  const affectedMeasurement = measureAffectedAreas(polygon, affectedAreaPolygons);
-  if (!affectedMeasurement.valid || !Number.isFinite(affectedAreaSqm) || affectedAreaSqm < 0 || Math.abs(affectedMeasurement.areaSqm - affectedAreaSqm) > Math.max(0.01, affectedAreaSqm * 1e-10)) {
+  const affectedMeasurement = measureAffectedAreas(polygon, affectedAreaPolygons, { confirmedZero: affectedAreaSqm === 0 });
+  const affectedFigureMatches = affectedMeasurement.valid && (affectedMeasurement.areaSqm === null || affectedAreaSqm === null
+    ? affectedMeasurement.areaSqm === affectedAreaSqm
+    : Number.isFinite(affectedAreaSqm) && affectedAreaSqm >= 0 &&
+      Math.abs(affectedMeasurement.areaSqm - affectedAreaSqm) <= Math.max(0.01, affectedAreaSqm * 1e-10));
+  if (!affectedMeasurement.valid || !affectedFigureMatches) {
     throw new StorageError('INVALID_FIELD_REPORT', affectedMeasurement.valid ? 'The affected-area measurement does not match its boundary.' : affectedMeasurement.error.message);
   }
   const provenanceCheck = validateAffectedAreaWaypoints(affectedAreaPolygons, affectedAreaWaypoints);
@@ -167,6 +215,7 @@ export function markFieldSurveyPending(
     areaSqm,
     affectedAreaPolygonsJson: JSON.stringify(affectedAreaPolygons),
     affectedAreaSqm,
+    affectedAreaMeasurement: affectedMeasurement.measurement,
     affectedAreaWaypointsJson: JSON.stringify(affectedAreaWaypoints),
     activeAffectedWaypointsJson: JSON.stringify([]),
     measurementProvenanceJson: JSON.stringify(affectedMeasurement.provenance),

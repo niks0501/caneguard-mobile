@@ -1,4 +1,4 @@
-import type { FieldSurveyRow } from '@/database/schema';
+import type { FieldSurveyRow, MeasurementProvenance } from '@/database/schema';
 import {
   boundaryCanEdit,
   boundaryRetriesItself,
@@ -22,10 +22,13 @@ export type AttachedBoundaryInput = Pick<
   | 'remoteId'
   | 'status'
   | 'waypointsJson'
->;
+> &
+  /** Optional so rows read before the measurement state existed still fit; both absent reads as not measured. */
+  Partial<Pick<FieldSurveyRow, 'affectedAreaMeasurement' | 'affectedAreaSqm'>>;
 
 export interface AttachedBoundarySend {
-  affectedAreaSqm: number;
+  /** Null when only the plot was measured; 0 only for a confirmed "no affected area found". */
+  affectedAreaSqm: number | null;
   affectedAreaWaypoints: SurveyWaypoint[][];
   affectedAreas: SurveyPolygon[];
   areaSqm: number;
@@ -43,8 +46,18 @@ export type AttachedBoundarySendPlan =
   | { status: 'on_its_way' }
   | { status: 'queue'; send: AttachedBoundarySend };
 
-function jsonArray(text: string | null): unknown[] | null {
-  if (text === null) return [];
+/**
+ * True only when the inspector explicitly confirmed "no affected area found".
+ * Older rows carry no measurement state, so their `[]` + 0 is never read as a confirmed zero.
+ */
+export function isConfirmedZeroSurvey(
+  row: Pick<AttachedBoundaryInput, 'affectedAreaMeasurement' | 'affectedAreaSqm'>,
+): boolean {
+  return row.affectedAreaMeasurement === 'measured' && row.affectedAreaSqm === 0;
+}
+
+function jsonArray(text: string | null | undefined): unknown[] | null {
+  if (text === null || text === undefined) return [];
   try {
     const parsed: unknown = JSON.parse(text);
     return Array.isArray(parsed) ? parsed : null;
@@ -87,7 +100,7 @@ export function planAttachedBoundarySend(
   const affectedAreaJson = jsonArray(row.affectedAreaPolygonsJson);
   if (affectedAreaJson === null) return { status: 'blocked' };
   const affectedAreas = affectedAreaJson as SurveyPolygon[];
-  const affected = measureAffectedAreas(plot.polygon, affectedAreas);
+  const affected = measureAffectedAreas(plot.polygon, affectedAreas, { confirmedZero: isConfirmedZeroSurvey(row) });
   if (!affected.valid) return { status: 'blocked' };
   const affectedAreaWaypointJson = jsonArray(row.affectedAreaWaypointsJson);
   if (affectedAreaWaypointJson === null) return { status: 'blocked' };
@@ -118,9 +131,10 @@ export function planAttachedBoundarySend(
 }
 
 export interface MeasuredBoundaryArea {
-  /** Drawn affected-area polygons; 0 means only the plot was measured. */
+  /** Drawn affected-area polygons; 0 means only the plot was measured (or none was found). */
   affectedAreaCount: number;
-  affectedAreaSqm: number;
+  /** Null when the affected ground was never measured; 0 only for a confirmed "none found". */
+  affectedAreaSqm: number | null;
   areaSqm: number;
 }
 
@@ -136,7 +150,9 @@ export function measuredBoundaryArea(row: AttachedBoundaryInput): MeasuredBounda
   if (!plot.valid) return null;
   const affectedAreas = jsonArray(row.affectedAreaPolygonsJson ?? null);
   if (affectedAreas === null) return null;
-  const affected = measureAffectedAreas(plot.polygon, affectedAreas as SurveyPolygon[]);
+  const affected = measureAffectedAreas(plot.polygon, affectedAreas as SurveyPolygon[], {
+    confirmedZero: isConfirmedZeroSurvey(row),
+  });
   if (!affected.valid) return null;
   const active = jsonArray(row.activeAffectedWaypointsJson ?? null);
   if (active === null || active.length > 0) return null;
@@ -148,11 +164,12 @@ export function measuredBoundaryArea(row: AttachedBoundaryInput): MeasuredBounda
 }
 
 /**
- * The share of the plot the inspector drew as affected, to one decimal; null when no
- * damage was drawn or the plot has no area. Same rule as the office, so both screens agree.
+ * The share of the plot the inspector drew as affected, to one decimal. Null while the affected
+ * ground is unmeasured or the plot has no area; 0 for a confirmed "none found". Same rule as the
+ * office, so both screens agree.
  */
-export function percentAffected(area: Pick<MeasuredBoundaryArea, 'affectedAreaCount' | 'affectedAreaSqm' | 'areaSqm'>): number | null {
-  if (area.affectedAreaCount === 0 || area.areaSqm <= 0) return null;
+export function percentAffected(area: Pick<MeasuredBoundaryArea, 'affectedAreaSqm' | 'areaSqm'>): number | null {
+  if (area.affectedAreaSqm === null || area.areaSqm <= 0) return null;
   return Math.round(Math.min(100, (area.affectedAreaSqm / area.areaSqm) * 100) * 10) / 10;
 }
 
@@ -162,20 +179,56 @@ export function hasOpenAffectedArea(row: AttachedBoundaryInput): boolean {
   return active !== null && active.length > 0;
 }
 
-/**
- * Report values from a measured boundary: the plot size in hectares and, when
- * affected areas were drawn, the affected share of the plot in percent.
- */
-export function reportAreaFromBoundary(measured: MeasuredBoundaryArea): {
+/** The identity of one saved state of a boundary; any edit to the boundary changes it. */
+export function surveyRevisionOf(
+  survey: { clientUuid: string; updatedAt: string } | null | undefined,
+): string | null {
+  return survey ? `${survey.clientUuid}@${survey.updatedAt}` : null;
+}
+
+/** Hectares to four decimals (0.0001 ha = 1 m²), so a 40 m² patch stays 0.004 and never rounds to 0. */
+export function sqmToHectares(areaSqm: number): number {
+  const hectares = Number((areaSqm / 10_000).toFixed(4));
+  return areaSqm > 0 ? Math.max(0.0001, hectares) : hectares;
+}
+
+/** The three report figures a measured boundary yields, each paired with whether it was measured. */
+export interface ReportMeasurements {
+  affectedAreaHectares: number | null;
+  affectedAreaMeasurement: MeasurementProvenance;
+  affectedPortionMeasurement: MeasurementProvenance;
   affectedPortionPercent: number | null;
-  areaHectares: number;
-} {
-  const hectares = measured.areaSqm / 10_000;
+  plotAreaHectares: number | null;
+  plotAreaMeasurement: MeasurementProvenance;
+}
+
+/** What a report carries when no boundary supplies a measurement. */
+export const UNMEASURED_REPORT_MEASUREMENTS: ReportMeasurements = {
+  affectedAreaHectares: null,
+  affectedAreaMeasurement: 'not_measured',
+  affectedPortionMeasurement: 'not_measured',
+  affectedPortionPercent: null,
+  plotAreaHectares: null,
+  plotAreaMeasurement: 'not_measured',
+};
+
+/**
+ * Report values from a boundary, kept apart: total plot area, affected ground area and the
+ * affected share of the plot. A plot-only boundary yields a plot area with the affected
+ * figures not measured (never the plot size, never 0); 0 appears only for a confirmed
+ * "no affected area found". Null while the boundary is unfinished or damaged, so callers
+ * clear survey-derived figures instead of keeping old ones.
+ */
+export function deriveReportMeasurementsFromSurvey(row: AttachedBoundaryInput): ReportMeasurements | null {
+  const measured = measuredBoundaryArea(row);
+  if (!measured) return null;
+  const portion = percentAffected(measured);
   return {
-    // Two decimals, like the weekly report; a plot under 0.01 ha keeps four so it never reads as 0.
-    areaHectares: hectares >= 0.01 ? Number(hectares.toFixed(2)) : Math.max(0.0001, Number(hectares.toFixed(4))),
-    affectedPortionPercent: measured.affectedAreaCount > 0
-      ? Math.min(100, Number(((measured.affectedAreaSqm / measured.areaSqm) * 100).toFixed(1)))
-      : null,
+    plotAreaHectares: sqmToHectares(measured.areaSqm),
+    plotAreaMeasurement: 'measured',
+    affectedAreaHectares: measured.affectedAreaSqm === null ? null : sqmToHectares(measured.affectedAreaSqm),
+    affectedAreaMeasurement: measured.affectedAreaSqm === null ? 'not_measured' : 'measured',
+    affectedPortionPercent: portion,
+    affectedPortionMeasurement: portion === null ? 'not_measured' : 'measured',
   };
 }

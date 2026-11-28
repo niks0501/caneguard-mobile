@@ -9,6 +9,7 @@ import RelateOp from 'jsts/org/locationtech/jts/operation/relate/RelateOp.js';
 import UnaryUnionOp from 'jsts/org/locationtech/jts/operation/union/UnaryUnionOp.js';
 
 import type { MapCoordinate } from '@/features/reports/domain/manualMap';
+import { percentAffected } from '@/features/surveys/domain/attachedBoundary';
 import type { DrawingShape } from '@/features/surveys/domain/drawingTool';
 import {
   MAX_AFFECTED_AREA_WAYPOINTS,
@@ -38,7 +39,7 @@ export interface SubdivisionPiece {
   polygon: SurveyPolygon;
   waypoints: SurveyWaypoint[];
   areaSqm: number;
-  /** Share of the measured plot rounded to one decimal, capped at 100 (matches office and report math). */
+  /** Share of the measured plot keeping two decimals (matches office and report math). */
   percentOfPlot: number;
   /** Strictly interior coordinate via JSTS `InteriorPointArea`, so chips never fall outside concave faces. */
   labelPoint: MapCoordinate;
@@ -94,7 +95,7 @@ function isValidCoordinate(point: MapCoordinate | null | undefined): point is Ma
 
 function roundPercent(areaSqm: number, plotAreaSqm: number): number {
   if (!Number.isFinite(areaSqm) || !Number.isFinite(plotAreaSqm) || plotAreaSqm <= 0) return 0;
-  return Math.round(Math.min(100, (areaSqm / plotAreaSqm) * 100) * 10) / 10;
+  return percentAffected({ areaSqm: plotAreaSqm, affectedAreaSqm: areaSqm }) ?? 0;
 }
 
 function clampLon(value: number): number {

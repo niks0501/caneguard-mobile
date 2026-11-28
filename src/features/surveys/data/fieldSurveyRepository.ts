@@ -171,7 +171,7 @@ export async function saveFieldSurveyDraft(
 }
 
 export function findOwnedFieldSurvey(
-  database: CaneGuardDatabase,
+  database: Pick<CaneGuardDatabase, 'select'>,
   clientUuid: string,
   ownerIdentity: string,
 ): FieldSurveyRow | null {
@@ -207,7 +207,7 @@ export function listEarlierMapRows(database: CaneGuardDatabase, ownerIdentity: s
 }
 
 export function markFieldSurveyPending(
-  database: CaneGuardDatabase,
+  database: Pick<CaneGuardDatabase, 'select' | 'update'>,
   clientUuid: string,
   ownerIdentity: string,
   districtCode: string,
@@ -219,6 +219,7 @@ export function markFieldSurveyPending(
   affectedAreaSqm: number | null = null,
   affectedAreaWaypoints: SurveyWaypoint[][] = [],
   provenance: AuthoringProvenance | null = null,
+  notify: (() => void) | null = emitSyncRecordsChanged,
 ): void {
   const owner = requireOwnerIdentity(ownerIdentity);
   const row = findOwnedFieldSurvey(database, clientUuid, owner);
@@ -267,7 +268,7 @@ export function markFieldSurveyPending(
     lastSyncErrorCode: null,
     updatedAt: new Date().toISOString(),
   }).where(and(eq(fieldSurveys.clientUuid, clientUuid), eq(fieldSurveys.ownerIdentity, owner))).run();
-  emitSyncRecordsChanged();
+  notify?.();
 }
 
 /**
@@ -276,11 +277,12 @@ export function markFieldSurveyPending(
  * longer on this phone or cannot be sent, so the report must not go without it.
  */
 export function queueAttachedFieldSurvey(
-  database: CaneGuardDatabase,
+  database: Pick<CaneGuardDatabase, 'select' | 'update'>,
   clientUuid: string,
   ownerIdentity: string,
   districtCode: string,
   provenance: AuthoringProvenance | null = null,
+  notify: (() => void) | null = emitSyncRecordsChanged,
 ): boolean {
   const row = findOwnedFieldSurvey(database, clientUuid, ownerIdentity);
   if (!row) return false;
@@ -290,7 +292,7 @@ export function queueAttachedFieldSurvey(
     const { send } = plan;
     markFieldSurveyPending(
       database, clientUuid, ownerIdentity, districtCode, send.polygon, send.areaSqm, send.capturedAt,
-      send.affectedAreas, send.affectedAreaSqm, send.affectedAreaWaypoints, provenance,
+      send.affectedAreas, send.affectedAreaSqm, send.affectedAreaWaypoints, provenance, notify,
     );
   }
   return true;

@@ -742,6 +742,27 @@ describe('SyncProvider foreground triggers', () => {
     view.unmount();
   });
 
+  it('continues draining a healthy queue after the 50-record run limit', async () => {
+    jest.useFakeTimers();
+    try {
+      const synced = { status: 'synced' as const, reportId: 'fixture', remoteId: 'remote' };
+      jest.mocked(countUnsyncedFieldReports).mockResolvedValue(1);
+      jest.mocked(syncPendingFieldReports)
+        .mockResolvedValueOnce({ attempted: 50, authRequired: false, failed: 0,
+          haltReason: 'run-limit', results: [synced], source: 'startup', synced: 50 })
+        .mockResolvedValue({ attempted: 1, authRequired: false, failed: 0,
+          haltReason: 'empty', results: [synced], source: 'retry-timer', synced: 1 });
+      await render(<SyncProvider><Text>Ready</Text></SyncProvider>);
+      await waitFor(() => expect(NetInfo.addEventListener).toHaveBeenCalled());
+      await act(async () => { networkListener(ONLINE); await Promise.resolve(); });
+      expect(syncPendingFieldReports).toHaveBeenCalledTimes(1);
+      await act(async () => { jest.advanceTimersByTime(1_001); await Promise.resolve(); });
+      expect(syncPendingFieldReports).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('schedules one app-active retry after a transient queue blocker', async () => {
     jest.useFakeTimers();
     try {

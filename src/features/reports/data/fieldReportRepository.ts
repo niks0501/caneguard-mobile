@@ -758,25 +758,7 @@ export async function finalizeFieldReport(
       }
     }
 
-    const attachedSurveyUuid = draftContext.draft.fieldSurveyClientUuid;
-    if (
-      attachedSurveyUuid &&
-      !queueAttachedFieldSurvey(
-        database,
-        attachedSurveyUuid,
-        owner,
-        input.districtCode?.trim() ?? '',
-        input.provenance ?? null,
-      )
-    ) {
-      return {
-        missingRequirements: ['attached_boundary'],
-        report: draftContext.draft,
-        status: 'invalid' as const,
-      };
-    }
-
-    const result = database.transaction((transaction) => {
+    const result = database.transaction<FinalizeFieldReportResult>((transaction) => {
       const existing = transaction
         .select()
         .from(fieldReports)
@@ -842,6 +824,21 @@ export async function finalizeFieldReport(
       );
       if (missingRequirements.length > 0) {
         return { missingRequirements, report, status: 'invalid' as const };
+      }
+
+      // Publish both rows after commit so a failed report write leaves its map editable.
+      if (
+        existing.fieldSurveyClientUuid &&
+        !queueAttachedFieldSurvey(
+          transaction,
+          existing.fieldSurveyClientUuid,
+          owner,
+          input.districtCode?.trim() ?? '',
+          input.provenance ?? null,
+          null,
+        )
+      ) {
+        return { missingRequirements: ['attached_boundary'], report, status: 'invalid' as const };
       }
 
       transaction

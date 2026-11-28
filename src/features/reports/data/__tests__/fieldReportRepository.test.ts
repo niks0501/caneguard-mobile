@@ -1958,6 +1958,26 @@ describe('findScanRecordIdForCase', () => {
       native.close();
     });
 
+    it('keeps the attached map editable if the report finalization write fails', async () => {
+      const { database, native } = openTestDatabase();
+      try {
+        await prepareFinalizableReport(database, native);
+        await saveAttachedBoundary(database, 'D-01');
+        native.exec(`
+          CREATE TRIGGER audit_fail_finalization BEFORE UPDATE OF authoring_state ON field_reports
+          WHEN NEW.authoring_state = 'finalized'
+          BEGIN SELECT RAISE(ABORT, 'audit: finalization write failed'); END;
+        `);
+        await expect(finalizeFieldReport(database, REPORT_ID, SUBMITTER_ID, finalizeValues(), IMAGE_EXISTS))
+          .rejects.toMatchObject({ code: 'UPDATE_FAILED' });
+        const row = native.prepare('SELECT authoring_state FROM field_reports WHERE id = ?').get(REPORT_ID);
+        expect(row?.authoring_state).toBe('draft');
+        expect(findOwnedFieldSurvey(database, SURVEY_UUID, SUBMITTER_ID)?.status).toBe('draft');
+      } finally {
+        native.close();
+      }
+    });
+
     it('queues the attached boundary so it uploads with the report', async () => {
       const { database, native } = openTestDatabase();
       await prepareFinalizableReport(database, native);

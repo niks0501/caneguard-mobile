@@ -420,10 +420,17 @@ export function SyncProvider({ children }: PropsWithChildren) {
           await markSessionExpired();
           return result;
         }
+        const pendingCount = await refreshPendingCount();
+        if (!canContinueOfficialRecordSync()) {
+          return { ...result, pendingCount };
+        }
         if (retryNotBefore.current > performance.now()) {
           armRetryTimer(retryNotBefore.current - performance.now());
         } else if (result.haltReason === 'transient-blocker') {
           armRetryTimer(nextAutoRetryDelayMs(null));
+        } else if (result.haltReason === 'run-limit' && (pendingCount ?? 0) > 0) {
+          // Yield between bounded passes while there is work left for this session.
+          armRetryTimer(1000);
         } else {
           clearRetryTimer();
         }
@@ -441,7 +448,6 @@ export function SyncProvider({ children }: PropsWithChildren) {
             sessionKey,
           }));
         }
-        const pendingCount = await refreshPendingCount();
         return { ...result, pendingCount };
       } catch {
         if (isInitiatingSessionCurrent()) {

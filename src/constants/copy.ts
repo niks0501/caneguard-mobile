@@ -278,6 +278,8 @@ export const FIELD_SURVEY_COPY = {
     'affected.add': 'Affected area: tap the map to add points',
     'affected.closable': 'Affected area: add more points or finish it',
     'affected.move': 'Affected area: tap the map or drag the point to move it',
+    'divide.draw': 'Divide plot: tap two points across the plot to slice it',
+    'divide.select': 'Divide plot: tap shaded portions to select affected areas',
   },
   validity: {
     too_few_points: 'Add at least three boundary points.',

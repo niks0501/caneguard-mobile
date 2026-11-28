@@ -10,7 +10,9 @@ import * as schema from '@/database/schema';
 import { fieldSurveys } from '@/database/schema';
 import { apiRequest } from '@/features/shared/api/apiClient';
 import { findOwnedFieldSurvey, markFieldSurveyPending, saveFieldSurveyDraft } from '@/features/surveys/data/fieldSurveyRepository';
-import { ringArea, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+import { deriveReportMeasurementsFromSurvey } from '@/features/surveys/domain/attachedBoundary';
+import { ringArea, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+import { applySubdivisionSelection, applyWholePlotAffected, subdividePlot } from '@/features/surveys/domain/plotSubdivision';
 import { syncFieldSurvey } from '@/features/surveys/services/syncFieldSurvey';
 
 jest.mock('@/features/shared/api/apiClient', () => ({
@@ -199,5 +201,151 @@ it('uploads provenance only through the approved wire names', async () => {
   ]);
   expect(body.affected_area_polygons).toHaveLength(1);
   expect(body.affected_area_sqm).toBeGreaterThan(0);
+  native.close();
+});
+
+it('persists and syncs subdivided rotated-plot slices with exact 7-key wire provenance and accurate report figures', async () => {
+  const { database, native } = openDatabase();
+  const rotatedPlotWaypoints: SurveyWaypoint[] = [
+    { latitude: 10.700000, longitude: 122.950000, source: 'gps', accuracyMeters: 3.5, capturedAt: '2026-11-28T01:00:00.000Z' },
+    { latitude: 10.700412, longitude: 122.951347, source: 'gps', accuracyMeters: 4.1, capturedAt: '2026-11-28T01:01:00.000Z' },
+    { latitude: 10.701689, longitude: 122.950921, source: 'gps', accuracyMeters: 4.8, capturedAt: '2026-11-28T01:02:00.000Z' },
+    { latitude: 10.701204, longitude: 122.949613, source: 'map', accuracyMeters: null, capturedAt: '2026-11-28T01:03:00.000Z' },
+  ];
+  const plot = validateSurveyWaypoints(rotatedPlotWaypoints);
+  if (!plot.valid) throw new Error('rotated plot invalid');
+  const split = subdividePlot(
+    rotatedPlotWaypoints,
+    [[{ latitude: 10.700206, longitude: 122.9506735 }, { latitude: 10.7014465, longitude: 122.950267 }]],
+    '2026-11-28T02:00:00.000Z',
+  );
+  if (!split.ok) throw new Error('split failed');
+  const applied = applySubdivisionSelection(
+    { waypoints: rotatedPlotWaypoints, affectedAreas: [], affectedAreaWaypointSets: [], affectedWaypoints: [] },
+    [split.pieces[0]],
+  );
+  if (!applied.ok) throw new Error('apply failed');
+
+  const draft = await saveFieldSurveyDraft(database, {
+    authorRole: 'field_reporter',
+    capturedAt: '2026-11-28T02:00:00.000Z',
+    clientUuid: 'survey-subdivision-sync',
+    districtCode: 'D-01',
+    ownerIdentity: 'owner-1',
+    waypoints: applied.shape.waypoints,
+    affectedAreaPolygons: applied.shape.affectedAreas,
+    affectedAreaWaypoints: applied.shape.affectedAreaWaypointSets,
+  });
+  const derivedReport = deriveReportMeasurementsFromSurvey(draft);
+  expect(derivedReport).toMatchObject({
+    plotAreaMeasurement: 'measured',
+    affectedAreaMeasurement: 'measured',
+    affectedPortionMeasurement: 'measured',
+    affectedPortionPercent: split.pieces[0].percentOfPlot,
+  });
+
+  markFieldSurveyPending(
+    database,
+    draft.clientUuid,
+    'owner-1',
+    'D-01',
+    plot.polygon,
+    plot.areaSqm,
+    '2026-11-28T02:00:00.000Z',
+    applied.shape.affectedAreas,
+    split.pieces[0].areaSqm,
+    applied.shape.affectedAreaWaypointSets,
+  );
+  jest.mocked(apiRequest).mockResolvedValue({ id: 'remote-subdiv', status: 'kept' });
+
+  await expect(syncFieldSurvey({
+    allowImmediateRetries: false,
+    clientUuid: draft.clientUuid,
+    database,
+    districtCode: 'D-01',
+    ownerIdentity: 'owner-1',
+    token: 'access-token',
+  })).resolves.toEqual({ status: 'synced', remoteId: 'remote-subdiv' });
+
+  const body = JSON.parse(String(jest.mocked(apiRequest).mock.calls[0][1]?.body));
+  expect(Object.keys(body.measurement_provenance).sort()).toEqual([
+    'affected_area_sqm',
+    'affected_area_waypoint_provenance',
+    'containment_tolerance_m',
+    'method',
+    'overlap_removed',
+    'plot_area_sqm',
+    'source_polygon_count',
+  ]);
+  expect(body.affected_area_measurement).toBe('measured');
+  expect(body.affected_area_polygons).toHaveLength(1);
+  expect(body.affected_area_sqm).toBeCloseTo(split.pieces[0].areaSqm, 2);
+  expect(
+    body.measurement_provenance.affected_area_waypoint_provenance[0].every(
+      (wp: { source: string }) => wp.source === 'gps' || wp.source === 'map',
+    ),
+  ).toBe(true);
+  native.close();
+});
+
+it('persists and syncs a 100% Whole-plot affected shortcut survey through the approved wire contract', async () => {
+  const { database, native } = openDatabase();
+  const plotWaypoints: SurveyWaypoint[] = [
+    { latitude: 14, longitude: 120, source: 'gps', accuracyMeters: 3.1, capturedAt: '2026-11-28T01:00:00.000Z' },
+    { latitude: 14, longitude: 120.001, source: 'gps', accuracyMeters: 4.0, capturedAt: '2026-11-28T01:01:00.000Z' },
+    { latitude: 14.001, longitude: 120.001, source: 'gps', accuracyMeters: 3.7, capturedAt: '2026-11-28T01:02:00.000Z' },
+    { latitude: 14.001, longitude: 120, source: 'map', accuracyMeters: null, capturedAt: '2026-11-28T01:03:00.000Z' },
+  ];
+  const plot = validateSurveyWaypoints(plotWaypoints);
+  if (!plot.valid) throw new Error('plot invalid');
+  const whole = applyWholePlotAffected(
+    { waypoints: plotWaypoints, affectedAreas: [], affectedAreaWaypointSets: [], affectedWaypoints: [] },
+    '2026-11-28T02:05:00.000Z',
+  );
+  if (!whole.ok) throw new Error('whole plot failed');
+
+  const draft = await saveFieldSurveyDraft(database, {
+    authorRole: 'field_reporter',
+    capturedAt: '2026-11-28T02:05:00.000Z',
+    clientUuid: 'survey-whole-plot-sync',
+    districtCode: 'D-01',
+    ownerIdentity: 'owner-1',
+    waypoints: whole.shape.waypoints,
+    affectedAreaPolygons: whole.shape.affectedAreas,
+    affectedAreaWaypoints: whole.shape.affectedAreaWaypointSets,
+  });
+  expect(deriveReportMeasurementsFromSurvey(draft)).toMatchObject({
+    affectedAreaMeasurement: 'measured',
+    affectedPortionMeasurement: 'measured',
+    affectedPortionPercent: 100,
+  });
+
+  markFieldSurveyPending(
+    database,
+    draft.clientUuid,
+    'owner-1',
+    'D-01',
+    plot.polygon,
+    plot.areaSqm,
+    '2026-11-28T02:05:00.000Z',
+    whole.shape.affectedAreas,
+    plot.areaSqm,
+    whole.shape.affectedAreaWaypointSets,
+  );
+  jest.mocked(apiRequest).mockResolvedValue({ id: 'remote-whole', status: 'kept' });
+
+  await expect(syncFieldSurvey({
+    allowImmediateRetries: false,
+    clientUuid: draft.clientUuid,
+    database,
+    districtCode: 'D-01',
+    ownerIdentity: 'owner-1',
+    token: 'access-token',
+  })).resolves.toEqual({ status: 'synced', remoteId: 'remote-whole' });
+
+  const body = JSON.parse(String(jest.mocked(apiRequest).mock.calls[0][1]?.body));
+  expect(body.affected_area_sqm).toBeCloseTo(body.area_sqm, 2);
+  expect(body.measurement_provenance.source_polygon_count).toBe(1);
+  expect(body.measurement_provenance.overlap_removed).toBe(false);
   native.close();
 });

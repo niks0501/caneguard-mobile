@@ -9,7 +9,15 @@ import {
 } from '@/features/surveys/domain/fieldSurvey';
 
 /** What the drawing tool is doing right now; shown as a chip above the map. */
-export type DrawingToolState = 'idle' | 'plot.add' | 'plot.move' | 'affected.add' | 'affected.closable' | 'affected.move';
+export type DrawingToolState =
+  | 'idle'
+  | 'plot.add'
+  | 'plot.move'
+  | 'affected.add'
+  | 'affected.closable'
+  | 'affected.move'
+  | 'divide.draw'
+  | 'divide.select';
 
 export function drawingToolState(input: {
   locked: boolean;
@@ -17,8 +25,13 @@ export function drawingToolState(input: {
   hasSelection: boolean;
   selectedSet?: PointRef['set'] | null;
   activeAffectedCount: number;
+  subdividing?: boolean;
+  subdivisionPieceCount?: number;
 }): DrawingToolState {
   if (input.locked) return 'idle';
+  if (input.subdividing) {
+    return (input.subdivisionPieceCount ?? 0) >= 2 ? 'divide.select' : 'divide.draw';
+  }
   if (input.hasSelection) {
     if (input.selectedSet === 'plot') return 'plot.move';
     if (input.selectedSet === 'active' || input.selectedSet === 'area') return 'affected.move';

@@ -4,6 +4,8 @@ import { BackHandler, Linking, Platform } from 'react-native';
 
 import FieldReportScreen from '@/app/field-report';
 import { FIELD_SURVEY_COPY } from '@/constants/copy';
+import { buildWholePlotAffectedArea, subdividePlot } from '@/features/surveys/domain/plotSubdivision';
+import type { SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 import { clearReplacedReportSurveys, recordReplacedReportSurvey } from '@/features/surveys/services/reportSurveyHandoff';
 import { ToastProvider } from '@/components/ui/Toast';
 import type {
@@ -3169,6 +3171,60 @@ describe('FieldReportScreen', () => {
         affectedAreaHectares: 0,
         affectedAreaMeasurement: 'measured',
         affectedPortionPercent: 0,
+        affectedPortionMeasurement: 'measured',
+      }));
+    });
+
+    it('fills exact hectares and percentage from subdivided plot pieces', async () => {
+      const plotWaypoints = SURVEY_PLOT as SurveyWaypoint[];
+      const split = subdividePlot(plotWaypoints, [[
+        { latitude: 13.9999, longitude: 120.0005 },
+        { latitude: 14.0011, longitude: 120.0005 },
+      ]]);
+      expect(split.ok).toBe(true);
+      if (!split.ok) return;
+
+      attachSurvey(surveyRow({
+        affectedAreaPolygonsJson: JSON.stringify([split.pieces[0].polygon]),
+        affectedAreaWaypointsJson: JSON.stringify([split.pieces[0].waypoints]),
+        affectedAreaSqm: split.pieces[0].areaSqm,
+        affectedAreaMeasurement: 'measured',
+      }));
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+      await goToStep(1);
+      expectReadouts({ plot: /^1\.2 ha$/, affected: /^0\.6 ha$/, portion: '50%' });
+      await keepDraft();
+      expect(mockSave).toHaveBeenLastCalledWith(expect.objectContaining({
+        plotAreaHectares: expect.closeTo(1.2, 1),
+        affectedAreaHectares: expect.closeTo(0.6, 1),
+        affectedAreaMeasurement: 'measured',
+        affectedPortionPercent: 50,
+        affectedPortionMeasurement: 'measured',
+      }));
+    });
+
+    it('fills exact hectares and 100% from a whole-plot affected survey', async () => {
+      const plotWaypoints = SURVEY_PLOT as SurveyWaypoint[];
+      const whole = buildWholePlotAffectedArea(plotWaypoints);
+      expect(whole.ok).toBe(true);
+      if (!whole.ok) return;
+      attachSurvey(surveyRow({
+        affectedAreaPolygonsJson: JSON.stringify([whole.piece.polygon]),
+        affectedAreaWaypointsJson: JSON.stringify([whole.piece.waypoints]),
+        affectedAreaSqm: whole.piece.areaSqm,
+        affectedAreaMeasurement: 'measured',
+      }));
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+      await goToStep(1);
+      expectReadouts({ plot: /^1\.2 ha$/, affected: /^1\.2 ha$/, portion: '100%' });
+      await keepDraft();
+      expect(mockSave).toHaveBeenLastCalledWith(expect.objectContaining({
+        plotAreaHectares: expect.closeTo(1.2, 1),
+        affectedAreaHectares: expect.closeTo(1.2, 1),
+        affectedAreaMeasurement: 'measured',
+        affectedPortionPercent: 100,
         affectedPortionMeasurement: 'measured',
       }));
     });

@@ -35,6 +35,12 @@ export const LOCATION_UNAVAILABLE_REASON_LABELS: Record<
 
 export interface FieldReport {
   affectedAreaHectares: number | null;
+  /**
+   * Total plot area in hectares, kept apart from the affected ground area (D1-A). Filled from the
+   * attached boundary; absent or null with `not_measured` when no boundary measured the plot.
+   */
+  plotAreaHectares?: number | null;
+  plotAreaMeasurement?: MeasurementProvenance;
   /** NET-3 provenance frozen at finish; absent on drafts and on rows finished before it existed. */
   authorizationBasis?: AuthoringProvenance['basis'];
   capabilitiesVerifiedAt?: string;
@@ -104,6 +110,9 @@ export interface CreateFieldReportDraftInput {
 }
 
 export interface SaveFieldReportDraftInput {
+  /** Total plot area from the attached boundary; never typed by hand. */
+  plotAreaHectares?: number | null;
+  plotAreaMeasurement?: MeasurementProvenance;
   affectedAreaHectares?: number | null;
   affectedAreaMeasurement?: MeasurementProvenance;
   affectedPortionPercent?: number | null;
@@ -134,6 +143,12 @@ export interface SaveManualMapLocationInput {
 }
 
 export interface FinalizeFieldReportInput {
+  /**
+   * Total plot area from the attached boundary. When a boundary is attached, finalize re-reads it and
+   * replaces all three measurements with what it now measures; these only apply without a boundary.
+   */
+  plotAreaHectares?: number | null;
+  plotAreaMeasurement?: MeasurementProvenance;
   affectedAreaHectares: number | null;
   /**
    * D-01: optional on the wire so existing callers keep working; when omitted,

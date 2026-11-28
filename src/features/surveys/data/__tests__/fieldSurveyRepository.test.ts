@@ -1,3 +1,4 @@
+import { fieldSurveyMeasurementMigration } from '../../../../../test/fieldSurveyMeasurementMigration';
 import { readFileSync } from 'node:fs';
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import { drizzle } from 'drizzle-orm/expo-sqlite';
@@ -32,6 +33,7 @@ function openDatabase(): { database: CaneGuardDatabase; native: DatabaseSync } {
   native.exec(readFileSync('drizzle/0025_field_survey_author_role.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
   native.exec(readFileSync('drizzle/0037_net3_survey_provenance.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
   native.exec(readFileSync('drizzle/0039_field_map_label_outline.sql', 'utf8').replaceAll('--> statement-breakpoint', ''));
+  native.exec(fieldSurveyMeasurementMigration());
   const client = {
     prepareSync(sql: string) {
       const statement = native.prepare(sql);
@@ -106,6 +108,76 @@ describe('field survey local repository', () => {
     updateFieldSurveySyncResult(database, draft.clientUuid, 'owner-1', { status: 'synced', remoteId: 'remote-1' });
     expect(findOwnedFieldSurvey(database, draft.clientUuid, 'owner-1')).toMatchObject({ status: 'synced', remoteId: 'remote-1', syncAttemptCount: 2 });
     expect(native.prepare('SELECT client_uuid FROM field_surveys').get()).toEqual({ client_uuid: 'survey-client-1' });
+    native.close();
+  });
+
+  // Intent: every draft save recomputes the derived area columns from the saved shape, so an edit never leaves old figures.
+  it('recomputes plot and affected measurement columns on every draft save', async () => {
+    const { database, native } = openDatabase();
+    const base = {
+      authorRole: 'field_reporter' as const,
+      capturedAt: waypoint.capturedAt,
+      clientUuid: 'recompute-1',
+      districtCode: 'D-01',
+      ownerIdentity: 'owner-1',
+    };
+    const quarter = { type: 'Polygon' as const, coordinates: [[[120, 14], [120.0005, 14], [120.0005, 14.0005], [120, 14.0005], [120, 14]]] };
+    const quarterWaypoints: SurveyWaypoint[] = [
+      { ...waypoint, latitude: 14, longitude: 120 },
+      { ...waypoint, latitude: 14, longitude: 120.0005 },
+      { ...waypoint, latitude: 14.0005, longitude: 120.0005 },
+      { ...waypoint, latitude: 14.0005, longitude: 120 },
+    ];
+
+    // Plot only: the plot is measured, the affected ground is not (null, never 0).
+    expect(await saveFieldSurveyDraft(database, { ...base, waypoints: plotWaypoints })).toMatchObject({
+      status: 'draft', areaSqm: plotAreaSqm, affectedAreaSqm: null, affectedAreaMeasurement: 'not_measured',
+    });
+    // Drawing an area measures it.
+    const withArea = await saveFieldSurveyDraft(database, {
+      ...base, waypoints: plotWaypoints, affectedAreaPolygons: [quarter], affectedAreaWaypoints: [quarterWaypoints],
+    });
+    expect(withArea.affectedAreaMeasurement).toBe('measured');
+    expect(withArea.affectedAreaSqm).toBeCloseTo(plotAreaSqm / 4, -1);
+    // Deleting every area returns to not measured, not to the old figure and not to 0.
+    expect(await saveFieldSurveyDraft(database, { ...base, waypoints: plotWaypoints })).toMatchObject({
+      affectedAreaSqm: null, affectedAreaMeasurement: 'not_measured',
+    });
+    // An explicit "no affected area found" is the only way to a measured 0.
+    expect(await saveFieldSurveyDraft(database, { ...base, waypoints: plotWaypoints, affectedZeroConfirmed: true })).toMatchObject({
+      affectedAreaSqm: 0, affectedAreaMeasurement: 'measured',
+    });
+    // Drawing an area supersedes a stale confirmation.
+    const superseded = await saveFieldSurveyDraft(database, {
+      ...base, waypoints: plotWaypoints, affectedAreaPolygons: [quarter], affectedAreaWaypoints: [quarterWaypoints], affectedZeroConfirmed: true,
+    });
+    expect(superseded.affectedAreaSqm).toBeGreaterThan(0);
+    // A shape that is no longer a valid plot clears every derived column.
+    expect(await saveFieldSurveyDraft(database, { ...base, waypoints: plotWaypoints.slice(0, 2) })).toMatchObject({
+      areaSqm: null, polygonJson: null, affectedAreaSqm: null, affectedAreaMeasurement: 'not_measured', measurementProvenanceJson: null,
+    });
+    native.close();
+  });
+
+  // Intent: submitting a plot-only boundary stores an unmeasured affected area; zero needs the explicit value.
+  it('queues a plot-only boundary as not measured and a confirmed zero as measured', () => {
+    const { database, native } = openDatabase();
+    void saveFieldSurveyDraft(database, { authorRole: 'field_reporter', capturedAt: waypoint.capturedAt, clientUuid: 'queue-1', districtCode: 'D-01', ownerIdentity: 'owner-1', waypoints: plotWaypoints });
+    markFieldSurveyPending(database, 'queue-1', 'owner-1', 'D-01', polygon, plotAreaSqm, waypoint.capturedAt);
+    expect(findOwnedFieldSurvey(database, 'queue-1', 'owner-1')).toMatchObject({ status: 'pending', affectedAreaSqm: null, affectedAreaMeasurement: 'not_measured' });
+
+    void saveFieldSurveyDraft(database, { authorRole: 'field_reporter', capturedAt: waypoint.capturedAt, clientUuid: 'queue-2', districtCode: 'D-01', ownerIdentity: 'owner-1', waypoints: plotWaypoints, affectedZeroConfirmed: true });
+    markFieldSurveyPending(database, 'queue-2', 'owner-1', 'D-01', polygon, plotAreaSqm, waypoint.capturedAt, [], 0, []);
+    expect(findOwnedFieldSurvey(database, 'queue-2', 'owner-1')).toMatchObject({ status: 'pending', affectedAreaSqm: 0, affectedAreaMeasurement: 'measured' });
+    native.close();
+  });
+
+  // Intent: a figure that does not match its polygons is refused, including a 0 that was not drawn or a null that was.
+  it('refuses an affected figure that disagrees with the drawn polygons', async () => {
+    const { database, native } = openDatabase();
+    await saveFieldSurveyDraft(database, { authorRole: 'field_reporter', capturedAt: waypoint.capturedAt, clientUuid: 'mismatch-1', districtCode: 'D-01', ownerIdentity: 'owner-1', waypoints: plotWaypoints });
+    expect(() => markFieldSurveyPending(database, 'mismatch-1', 'owner-1', 'D-01', polygon, plotAreaSqm, waypoint.capturedAt, [polygon], null, [])).toThrow();
+    expect(() => markFieldSurveyPending(database, 'mismatch-1', 'owner-1', 'D-01', polygon, plotAreaSqm, waypoint.capturedAt, [], 25, [])).toThrow();
     native.close();
   });
 

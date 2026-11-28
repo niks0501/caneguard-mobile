@@ -74,8 +74,8 @@ describe('ReportSurveyCard', () => {
     expect(onAttach).toHaveBeenCalledWith('survey-1');
   });
 
-  // Intent: the card says how much of the plot is affected next to its size, the same share the office will see.
-  it('shows the affected share beside the plot size once damage was drawn', async () => {
+  // Intent: three separate readouts: total plot, affected ground and share of the plot, the same share the office will see.
+  it('shows plot, affected ground and share as separate readouts once damage was drawn', async () => {
     const half = [
       [121, 14], [121.0021, 14], [121.0021, 14.0005], [121, 14.0005], [121, 14],
     ];
@@ -83,15 +83,39 @@ describe('ReportSurveyCard', () => {
     await render(
       <ReportSurveyCard attachedSurvey={attached} attachedUuid="survey-1" onAttach={jest.fn()} onOpenMeasure={jest.fn()} surveys={[attached]} />,
     );
-    expect(screen.getByText(/Measured on map: 2\.51 ha plot · 50% affected/)).toBeTruthy();
+    expect(screen.getByTestId('field-report.survey-plot')).toHaveTextContent('2.51 ha');
+    expect(screen.getByTestId('field-report.survey-affected')).toHaveTextContent(/^1\.2[56] ha$/);
+    expect(screen.getByTestId('field-report.survey-portion')).toHaveTextContent('50%');
   });
 
-  it('shows only the size while no damage has been drawn', async () => {
+  // Intent: a plot-only map never reads as 0 ha or 0% affected; the affected figures say Not measured.
+  it('reads Not measured for the affected figures while no damage has been drawn', async () => {
     const attached = survey({});
     await render(
       <ReportSurveyCard attachedSurvey={attached} attachedUuid="survey-1" onAttach={jest.fn()} onOpenMeasure={jest.fn()} surveys={[attached]} />,
     );
-    expect(screen.getByText(FIELD_SURVEY_COPY.linkAttached('2.51'))).toBeTruthy();
+    expect(screen.getByTestId('field-report.survey-plot')).toHaveTextContent('2.51 ha');
+    expect(screen.getByTestId('field-report.survey-affected')).toHaveTextContent(FIELD_SURVEY_COPY.notMeasured);
+    expect(screen.getByTestId('field-report.survey-portion')).toHaveTextContent(FIELD_SURVEY_COPY.notMeasured);
+  });
+
+  // Intent: a legacy row that stored a forced 0 is still not a confirmed zero.
+  it('does not read a legacy stored 0 as a confirmed zero', async () => {
+    const attached = survey({ affectedAreaSqm: 0 });
+    await render(
+      <ReportSurveyCard attachedSurvey={attached} attachedUuid="survey-1" onAttach={jest.fn()} onOpenMeasure={jest.fn()} surveys={[attached]} />,
+    );
+    expect(screen.getByTestId('field-report.survey-affected')).toHaveTextContent(FIELD_SURVEY_COPY.notMeasured);
+  });
+
+  // Intent: an explicit "no affected area found" reads 0 ha and 0%.
+  it('shows 0 ha and 0% for a confirmed no-affected-area map', async () => {
+    const attached = survey({ affectedAreaMeasurement: 'measured', affectedAreaSqm: 0 });
+    await render(
+      <ReportSurveyCard attachedSurvey={attached} attachedUuid="survey-1" onAttach={jest.fn()} onOpenMeasure={jest.fn()} surveys={[attached]} />,
+    );
+    expect(screen.getByTestId('field-report.survey-affected')).toHaveTextContent('0 ha');
+    expect(screen.getByTestId('field-report.survey-portion')).toHaveTextContent('0%');
   });
 
   // Intent: a report pinned somewhere else than its attached map gets a one-line check; a pin on the plot, or just

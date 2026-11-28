@@ -302,6 +302,13 @@
       "when": 1795693671673,
       "tag": "0042_farmer_care_loop",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "6",
+      "when": 1795807028043,
+      "tag": "0043_measured_zero_plot_area",
+      "breakpoints": true
     }
   ]
 }

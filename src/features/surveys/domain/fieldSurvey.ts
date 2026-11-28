@@ -23,7 +23,9 @@ export interface SurveyMeasurementProvenance {
 
 export interface AffectedAreaMeasurement {
   valid: true;
-  areaSqm: number;
+  /** Null when no affected ground was assessed; 0 only when the inspector confirmed none was found. */
+  areaSqm: number | null;
+  measurement: 'measured' | 'not_measured';
   provenance: SurveyMeasurementProvenance;
 }
 
@@ -126,10 +128,15 @@ export function ringArea(ring: number[][]): number {
  * Validates affected polygons against the plot and measures their geometric
  * union, so overlaps contribute area only once. The returned provenance
  * records the measurement method and the source polygon count.
+ *
+ * With no affected polygons the affected ground is unmeasured (null), never 0:
+ * a zero is reported only when the inspector explicitly confirmed that no
+ * affected area was found (`confirmedZero`).
  */
 export function measureAffectedAreas(
   plot: SurveyPolygon,
   affectedAreas: SurveyPolygon[],
+  options: { confirmedZero?: boolean } = {},
 ): AffectedAreaMeasurement | { valid: false; error: SurveyValidationError } {
   const plotGeometry = readValidPolygon(plot);
   if (!plotGeometry) return affectedInvalid('INVALID_POLYGON', 'The plot boundary is invalid.');
@@ -143,7 +150,8 @@ export function measureAffectedAreas(
   if (affectedAreas.length === 0) {
     return {
       valid: true,
-      areaSqm: 0,
+      areaSqm: options.confirmedZero === true ? 0 : null,
+      measurement: options.confirmedZero === true ? 'measured' : 'not_measured',
       provenance: {
         method: 'wgs84-ellipsoid-geodesic',
         plotAreaSqm: ringArea(plot.coordinates[0]),
@@ -188,6 +196,7 @@ export function measureAffectedAreas(
     return {
       valid: true,
       areaSqm: unionAreaSqm,
+      measurement: 'measured',
       provenance: {
         method: 'wgs84-ellipsoid-geodesic',
         plotAreaSqm: ringArea(plot.coordinates[0]),

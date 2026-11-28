@@ -12,9 +12,10 @@ const payload = {
   polygon: { type: 'Polygon' as const, coordinates: [[[120, 14], [120.001, 14], [120.001, 14.001], [120, 14.001], [120, 14]]] },
   area_sqm: 5_000,
   affected_area_polygons: [],
-  affected_area_sqm: 0,
+  affected_area_sqm: null,
+  affected_area_measurement: 'not_measured' as const,
   measurement_provenance: {
-      method: 'wgs84-ellipsoid-geodesic' as const,
+    method: 'wgs84-ellipsoid-geodesic' as const,
     plot_area_sqm: 5_000,
     affected_area_sqm: 0,
     source_polygon_count: 0,

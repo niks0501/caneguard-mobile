@@ -32,6 +32,12 @@ export interface FieldReportFormCheckpoint {
   reporterSuspectedCondition: string;
   savedAt: string;
   step: number;
+  /**
+   * Which revision of the attached boundary the measurement fields above were taken from
+   * (`<client uuid>@<updated at>`), or null when they were typed by hand. A checkpoint whose
+   * revision no longer matches the boundary must not restore its numbers.
+   */
+  surveyRevision?: string | null;
   variety: string;
 }
 
@@ -143,6 +149,7 @@ function parseFieldReportFormCheckpoint(
         ? value.savedAt
         : new Date(0).toISOString(),
     step: value.step,
+    surveyRevision: typeof value.surveyRevision === 'string' ? value.surveyRevision.slice(0, 120) : null,
     variety: boundedText(value.variety, MAX_SHORT_TEXT),
   };
 }

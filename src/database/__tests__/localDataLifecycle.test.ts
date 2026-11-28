@@ -152,6 +152,7 @@ const MIGRATIONS = [
   '0040_aerial_check_brief.sql',
   '0041_aerial_check_outbox.sql',
   '0042_farmer_care_loop.sql',
+  '0043_measured_zero_plot_area.sql',
 ] as const;
 
 function readMigration(filename: string): string {

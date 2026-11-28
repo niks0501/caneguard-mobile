@@ -130,13 +130,24 @@ export const FIELD_SURVEY_COPY = {
   manualSummary: (hectares: string | null, percent: string | null) =>
     `${hectares === null ? 'Area not measured' : `${hectares} ha`} · ${percent === null ? '% not measured' : `${percent}% affected`}`,
   manualAreaLabel: 'Affected area (ha)',
-  manualAreaExample: 'For example 0.5. A comma works too: 0,5.',
+  manualAreaExample: 'For example 0.5. Enter 0 only if you checked and found none. A comma works too: 0,5.',
   manualPortionLabel: 'Affected portion (%)',
   manualPortionExample: 'Your best estimate, for example 30.',
   linkNone: 'Not measured on a map',
   linkEmpty: 'Not measured on a map',
-  linkAttached: (hectares: string, percent: string | null = null) =>
-    percent === null ? `Measured on map: ${hectares} ha` : `Measured on map: ${hectares} ha plot · ${percent}% affected`,
+  linkAttached: 'Measured on map',
+  linkPlotLabel: 'Total plot',
+  linkAffectedLabel: 'Affected ground',
+  linkPortionLabel: '% of plot',
+  notMeasured: 'Not measured',
+  // Shown to two decimals, or all four below 0.01 ha so a small patch never reads as 0; the report keeps the exact figure.
+  readoutHectares: (hectares: number) => `${hectares >= 0.01 ? Number(hectares.toFixed(2)) : hectares} ha`,
+  readoutPercent: (percent: number) => `${percent}%`,
+  noAffectedFoundAction: 'No affected area found — 0 ha / 0%',
+  noAffectedFoundBody: 'Tap only if you checked the plot and found nothing affected. Leave it off if you did not check: it then stays Not measured.',
+  noAffectedFoundConfirmed: 'Confirmed: you checked and found no affected area. This will read 0 ha and 0%.',
+  noAffectedFoundReadout: 'No affected area found (0 ha · 0%)',
+  qualityAffectedNotMeasured: 'Affected area: Not measured',
   linkAttach: 'Use',
   linkSavedTitle: 'Use a map saved on this phone',
   linkSavedSummary: (count: number) => `${count} saved ${count === 1 ? 'map' : 'maps'}`,
@@ -146,10 +157,10 @@ export const FIELD_SURVEY_COPY = {
   linkMissing: 'The map measurement is no longer saved on this phone. Remove it or measure again.',
   linkAreaOpen: 'The affected area on this map is not closed yet. Open the map and tap Finish area.',
   linkUnfinished: 'The map is not finished yet. Open it to finish the plot, or remove it.',
-  linkFilled: (hectares: string, percent: string | null) =>
-    percent === null
-      ? `Filled from your map: ${hectares} ha.`
-      : `Filled from your map: ${hectares} ha, ${percent}% affected.`,
+  linkFilled: (plotHectares: string, affectedHectares: string | null, percent: string | null) =>
+    affectedHectares === null
+      ? `Filled from your map: ${plotHectares} ha plot. Affected area not measured.`
+      : `Filled from your map: ${plotHectares} ha plot, ${affectedHectares} ha affected${percent === null ? '' : ` (${percent}%)`}.`,
   linkOption: (district: string, hectares: string, status: string) => `${district} · ${hectares} ha · ${status}`,
   reportDone: 'Use in report',
   reportUnfinished: 'Add at least 3 plot points and finish any affected area to use this map.',
@@ -230,7 +241,7 @@ export const FIELD_SURVEY_COPY = {
     `Starts a new draft keeping your ${hectares} ha plot outline intact, without changing the saved record.`,
   completedPlotAffectedAction: 'Measure affected area from this plot',
   completedPlotAffectedStarted: 'Kept your plot outline in a new draft. Tap or walk the affected area now.',
-  affectedAreaOpenOnReport: 'The affected area on the map is not closed, so the % affected was not filled in. Open the map and tap Finish area.',
+  affectedAreaOpenOnReport: 'The affected area on the map is not closed, so nothing was filled in from it. Open the map and tap Finish area.',
   affectedAreaOutsidePlot: (count: number, meters: number) =>
     `${count} ${count === 1 ? 'point is' : 'points are'} up to ${Math.max(1, Math.round(meters))} m outside the plot. Move ${count === 1 ? 'it' : 'them'} inside the plot, or walk the area again.`,
   walkAreaClosed: ' The affected area is closed and measured.',

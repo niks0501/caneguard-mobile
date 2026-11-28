@@ -56,10 +56,11 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { findOwnedFieldSurvey, listOwnedFieldSurveys } from '@/features/surveys/data/fieldSurveyRepository';
 import { consumeReplacedReportSurvey } from '@/features/surveys/services/reportSurveyHandoff';
 import {
+  deriveReportMeasurementsFromSurvey,
   hasOpenAffectedArea,
-  measuredBoundaryArea,
   planAttachedBoundarySend,
-  reportAreaFromBoundary,
+  surveyRevisionOf,
+  UNMEASURED_REPORT_MEASUREMENTS,
 } from '@/features/surveys/domain/attachedBoundary';
 import { returnToTab } from '@/features/navigation/returnToTab';
 import { BarangayPicker } from '@/features/reports/components/BarangayPicker';
@@ -202,6 +203,8 @@ function sameSurveyRow(
 }
 
 interface FieldReportFormValues {
+  plotAreaHectares?: number | null;
+  plotAreaMeasurement?: MeasurementProvenance;
   affectedAreaHectares?: number | null;
   affectedAreaMeasurement?: MeasurementProvenance;
   affectedPortionPercent?: number | null;
@@ -325,6 +328,13 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
   const [caneClass, setCaneClass] = useState(report.data?.caneClass ?? '');
   const [notes, setNotes] = useState(report.data?.fieldNotes ?? '');
   const attachedSurveyUuid = report.data?.fieldSurveyClientUuid ?? null;
+  // The total plot area only ever comes from the attached boundary; it is never typed.
+  const [plotAreaHectares, setPlotAreaHectares] = useState<number | null>(
+    report.data?.fieldSurveyClientUuid ? (report.data.plotAreaHectares ?? null) : null,
+  );
+  // Which saved state of the attached boundary the measurement fields were last taken from.
+  // A different revision (resized, cleared, edited elsewhere) means they are stale and are re-derived.
+  const [measurementSource, setMeasurementSource] = useState<{ revision: string | null; uuid: string } | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{
     affectedArea?: string;
     affectedPortion?: string;
@@ -432,6 +442,8 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     setAffectedPortionText(persistedValues.affectedPortionText);
     setAffectedAreaChoice(persistedValues.affectedAreaChoice);
     setAffectedPortionChoice(persistedValues.affectedPortionChoice);
+    setPlotAreaHectares(report.data.fieldSurveyClientUuid ? (report.data.plotAreaHectares ?? null) : null);
+    setMeasurementSource(null);
     setVariety(persistedValues.variety);
     setCropAge(persistedValues.cropAge);
     setCaneClass(persistedValues.caneClass);
@@ -461,15 +473,31 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
           );
     if (checkpoint) {
       const saved = checkpoint.checkpoint;
+      // The checkpoint's numbers are only trusted for the boundary revision they came from; a boundary
+      // that changed (or was attached or removed) since then keeps the saved draft's numbers until
+      // they are re-derived from the boundary.
+      let currentSurvey: FieldSurveyRow | null = null;
+      if (user && report.data.fieldSurveyClientUuid) {
+        try {
+          currentSurvey = findOwnedFieldSurvey(database, report.data.fieldSurveyClientUuid, user.uuid);
+        } catch {
+          currentSurvey = null;
+        }
+      }
+      const currentRevision = surveyRevisionOf(currentSurvey);
+      const keepMeasurements = (saved.surveyRevision ?? null) === currentRevision;
+      if (keepMeasurements) {
+        setAffectedAreaText(saved.affectedAreaText);
+        setAffectedPortionText(saved.affectedPortionText);
+        setAffectedAreaChoice(saved.affectedAreaChoice);
+        setAffectedPortionChoice(saved.affectedPortionChoice);
+        if (currentSurvey) setMeasurementSource({ revision: currentRevision, uuid: currentSurvey.clientUuid });
+      }
       setFarmerName(saved.farmerName);
       setOwnerUnknown(saved.ownerUnknown === true);
       setBarangay(saved.barangay);
       setProvince(saved.province || defaultRegion?.province || '');
       setMunicipality(saved.municipality || defaultRegion?.municipality || '');
-      setAffectedAreaText(saved.affectedAreaText);
-      setAffectedPortionText(saved.affectedPortionText);
-      setAffectedAreaChoice(saved.affectedAreaChoice);
-      setAffectedPortionChoice(saved.affectedPortionChoice);
       setVariety(saved.variety);
       setCropAge(saved.cropAge);
       setCaneClass(saved.caneClass);
@@ -486,7 +514,8 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       if (propsInitialStep === undefined && stepParam === undefined) {
         setCurrentStep(Math.max(1, Math.min(STEP_COUNT, saved.step)));
       }
-      setFormDraftSignature(checkpointSignature(saved));
+      // A checkpoint with discarded numbers no longer matches the form, so it is rewritten with the right ones.
+      if (keepMeasurements) setFormDraftSignature(checkpointSignature(saved));
       setFormDraftSavedAt(saved.savedAt);
       setFormDraftStatus('saved');
     }
@@ -516,9 +545,12 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       reporterObservationText: mismatchDraft.reporterObservationText,
       reporterSuspectedCondition: mismatchDraft.reporterSuspectedCondition,
       step: currentStep,
+      surveyRevision: measurementSource?.uuid === attachedSurveyUuid ? measurementSource?.revision ?? null : null,
       variety,
     }),
     [
+      attachedSurveyUuid,
+      measurementSource,
       affectedAreaChoice,
       affectedAreaText,
       affectedPortionChoice,
@@ -703,8 +735,9 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     if (areaMeasurement === 'measured') {
       if (affectedArea === null) {
         errors.affectedArea = 'Enter the affected area as a number, for example 0.5.';
-      } else if (affectedArea <= 0 || affectedArea > MAX_AFFECTED_AREA_HECTARES) {
-        errors.affectedArea = `Enter an area greater than 0 and at most ${MAX_AFFECTED_AREA_HECTARES} hectares.`;
+      } else if (affectedArea < 0 || affectedArea > MAX_AFFECTED_AREA_HECTARES) {
+        // 0 is allowed: it records that you checked and found no affected area.
+        errors.affectedArea = `Enter an area of 0 or more and at most ${MAX_AFFECTED_AREA_HECTARES} hectares. Use 0 only if you checked and found none.`;
       }
     }
 
@@ -723,6 +756,13 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
     }
     setFieldErrors({});
     return {
+      // The plot area only exists while a map supplies it; without one nothing is sent for it.
+      ...(attachedSurveyUuid
+        ? {
+            plotAreaHectares,
+            plotAreaMeasurement: plotAreaHectares !== null ? ('measured' as const) : ('not_measured' as const),
+          }
+        : {}),
       affectedAreaHectares: affectedArea,
       affectedAreaMeasurement: areaMeasurement,
       affectedPortionPercent: affectedPortion,
@@ -744,6 +784,8 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
 
   const [savedSurveys, setSavedSurveys] = useState<FieldSurveyRow[]>([]);
   const [attachedSurvey, setAttachedSurvey] = useState<FieldSurveyRow | null>(null);
+  // The boundary uuid the last focus read was for, so "not read yet" is never mistaken for "missing".
+  const [surveyReadFor, setSurveyReadFor] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -774,10 +816,46 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
         attached = null;
       }
       setAttachedSurvey((current) => (sameSurveyRow(current, attached) ? current : attached));
+      setSurveyReadFor(attachedSurveyUuid);
     }, [attachedSurveyUuid, database, user]),
   );
 
+  // The attached boundary decides the plot, affected area and % figures: whenever its saved state
+  // changes (attach, resize, delete every affected area, edit elsewhere) they are taken from it again,
+  // and an unfinished or damaged boundary clears them instead of leaving the old ones.
+  const applySurveyMeasurements = useCallback((row: FieldSurveyRow | null) => {
+    const next = (row ? deriveReportMeasurementsFromSurvey(row) : null) ?? UNMEASURED_REPORT_MEASUREMENTS;
+    setAffectedAreaText(next.affectedAreaHectares === null ? '' : formatDecimalInput(next.affectedAreaHectares));
+    setAffectedAreaChoice(next.affectedAreaMeasurement);
+    setAffectedPortionText(next.affectedPortionPercent === null ? '' : formatDecimalInput(next.affectedPortionPercent));
+    setAffectedPortionChoice(next.affectedPortionMeasurement);
+    setPlotAreaHectares(next.plotAreaHectares);
+    setFieldErrors({});
+    return next;
+  }, []);
+  const draftLoaded = report.data !== null && loadedReportId === report.data.id;
+  if (!isFinalized && draftLoaded && attachedSurveyUuid && surveyReadFor === attachedSurveyUuid) {
+    const revision = surveyRevisionOf(attachedSurvey);
+    if (measurementSource?.uuid !== attachedSurveyUuid || measurementSource.revision !== revision) {
+      applySurveyMeasurements(attachedSurvey);
+      setMeasurementSource({ revision, uuid: attachedSurveyUuid });
+      // The map filled the numbers, so they stay folded and show in the summary.
+      setManualAreaChoice(false);
+    }
+  }
+  // Once the link is gone, forget which revision the figures came from so attaching the same map again re-reads it.
+  if (!attachedSurveyUuid && measurementSource !== null) setMeasurementSource(null);
+
   const handleAttachSurvey = (clientUuid: string | null) => {
+    if (clientUuid === null && attachedSurvey && deriveReportMeasurementsFromSurvey(attachedSurvey) !== null) {
+      // Removing the map removes the figures it supplied; numbers typed by hand never came from it.
+      setAffectedAreaText('');
+      setAffectedAreaChoice('not_measured');
+      setAffectedPortionText('');
+      setAffectedPortionChoice('not_measured');
+      setPlotAreaHectares(null);
+      setFieldErrors({});
+    }
     // Persist at once so the link survives leaving the form before Save.
     void report.save({ fieldSurveyClientUuid: clientUuid });
   };
@@ -835,28 +913,19 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
       if (replacedUuid) {
         void report.save({ fieldSurveyClientUuid: replacedUuid });
       }
-      const measured = measuredBoundaryArea(row);
-      if (!measured) {
+      // The figures themselves are applied from the saved boundary (see applySurveyMeasurements), so a
+      // resized, cleared or unfinished map always replaces the old numbers; this only says what happened.
+      const derived = deriveReportMeasurementsFromSurvey(row);
+      if (!derived) {
         // Say why nothing filled in, instead of leaving a silent "not measured".
         if (hasOpenAffectedArea(row)) showToast(FIELD_SURVEY_COPY.affectedAreaOpenOnReport, 'error');
         return;
       }
-      const filled = reportAreaFromBoundary(measured);
-      setAffectedAreaText(formatDecimalInput(filled.areaHectares));
-      setAffectedAreaChoice('measured');
-      // The map filled the numbers, so they stay folded and show in the summary.
-      setManualAreaChoice(false);
-      if (filled.affectedPortionPercent !== null) {
-        setAffectedPortionText(formatDecimalInput(filled.affectedPortionPercent));
-        setAffectedPortionChoice('measured');
-      }
-      setFieldErrors({});
       showToast(
         FIELD_SURVEY_COPY.linkFilled(
-          formatDecimalInput(filled.areaHectares),
-          filled.affectedPortionPercent === null
-            ? null
-            : formatDecimalInput(filled.affectedPortionPercent),
+          formatDecimalInput(derived.plotAreaHectares ?? 0),
+          derived.affectedAreaHectares === null ? null : formatDecimalInput(derived.affectedAreaHectares),
+          derived.affectedPortionPercent === null ? null : formatDecimalInput(derived.affectedPortionPercent),
         ),
         'success',
       );
@@ -1648,7 +1717,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                                     affectedPortionText.trim() || null,
                                   )
                             }
-                            manualEntry={
+                            manualEntry={attachedSurveyUuid ? undefined : (
                               <View style={styles.numericRow}>
                                 <View style={styles.numericField}>
                                   <TextField
@@ -1691,7 +1760,7 @@ export default function FieldReportScreen({ initialStep: propsInitialStep }: Fie
                                   ) : null}
                                 </View>
                               </View>
-                            }
+                            )}
                           />
                         </>
                       ) : currentStep === SAW_STEP ? (
@@ -3043,6 +3112,14 @@ function FinalizedReportSummary({ fieldReport }: { fieldReport: FieldReport }) {
       <EvidenceRow label="Farmer or farm reference" value={fieldReport.farmerOrFarmOwnerName === '' ? 'Owner not known' : (fieldReport.farmerOrFarmOwnerName ?? 'Not provided')} />
       <EvidenceRow label="Area" value={`${fieldReport.barangay ?? 'Not provided'}, ${fieldReport.municipality}, ${fieldReport.province}`} />
       <EvidenceRow
+        label="Total plot"
+        value={formatMeasurementSummary(
+          fieldReport.plotAreaHectares ?? null,
+          fieldReport.plotAreaMeasurement ?? 'not_measured',
+          'ha',
+        )}
+      />
+      <EvidenceRow
         label="Affected area"
         value={formatMeasurementSummary(
           fieldReport.affectedAreaHectares,
@@ -3376,6 +3453,7 @@ function checkpointSignature(
     checkpoint.reporterObservationText,
     checkpoint.reporterSuspectedCondition,
     checkpoint.step,
+    checkpoint.surveyRevision ?? null,
     checkpoint.variety,
   ]);
 }

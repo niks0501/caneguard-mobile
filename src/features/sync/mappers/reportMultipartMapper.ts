@@ -45,6 +45,8 @@ const MAX_TIMING_MS = 999_999_999;
 // This existing mobile-domain ceiling is stricter than v1's open upper
 // bound and therefore remains a safe subset of the server contract.
 const MAX_AFFECTED_AREA_HECTARES = 10_000;
+/** `plot_area_hectares` maximum in the v3 contract. */
+const MAX_PLOT_AREA_HECTARES = 99_999_999.9999;
 const MAX_FARMER_NAME_LENGTH = 160;
 const MAX_REGION_TEXT_LENGTH = 120;
 const MAX_SUGARCANE_DETAIL_LENGTH = 100;
@@ -125,6 +127,9 @@ export function mapFieldReportToMultipart(
   appendOptionalText(form, 'sugarcane_variety', report.sugarcaneVariety);
   appendOptionalText(form, 'crop_age', report.cropAge);
   appendOptionalText(form, 'cane_class', report.caneClass);
+  // D1-A: the total plot area travels apart from the affected ground area, each with its own provenance.
+  appendNumber(form, 'plot_area_hectares', report.plotAreaHectares);
+  form.append('plot_area_measurement', report.plotAreaMeasurement ?? 'not_measured');
   appendNumber(form, 'affected_area_hectares', report.affectedAreaHectares);
   // D-01: the server stores explicit provenance, so the client never leaves the
   // measurement decision to be inferred from a blank field.
@@ -211,6 +216,7 @@ function validateReport(
     MAX_FARMER_NAME_LENGTH,
   );
   validateRequiredText(report.barangay, 'Barangay', MAX_REGION_TEXT_LENGTH);
+  validateMeasurement('plot_area_measurement', report.plotAreaMeasurement ?? 'not_measured', report.plotAreaHectares ?? null);
   validateMeasurement('affected_area_measurement', report.affectedAreaMeasurement, report.affectedAreaHectares);
   validateMeasurement('affected_portion_measurement', report.affectedPortionMeasurement, report.affectedPortionPercent);
   validateOptionalText(report.province, 'Province', MAX_REGION_TEXT_LENGTH);
@@ -291,11 +297,18 @@ function validateReport(
   validateOptionalText(report.caneClass, 'Cane class', MAX_SUGARCANE_DETAIL_LENGTH);
   validateOptionalText(report.fieldNotes, 'Field notes', MAX_FIELD_NOTES_LENGTH);
   validateOptionalNumber(
+    report.plotAreaHectares,
+    0,
+    MAX_PLOT_AREA_HECTARES,
+    'Plot area',
+    true,
+  );
+  // 0 is a confirmed "no affected area found"; unmeasured is null (see affected_area_measurement).
+  validateOptionalNumber(
     report.affectedAreaHectares,
     0,
     MAX_AFFECTED_AREA_HECTARES,
     'Affected area',
-    true,
   );
   validateOptionalNumber(
     report.affectedPortionPercent,

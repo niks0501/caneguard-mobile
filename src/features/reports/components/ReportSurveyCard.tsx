@@ -8,7 +8,7 @@ import { BOUNDARY_STATE_COPY, FIELD_SURVEY_COPY } from '@/constants/copy';
 import { Radius, Spacing, Typography } from '@/constants/theme';
 import type { FieldSurveyRow } from '@/database/schema';
 import { useTheme } from '@/hooks/use-theme';
-import { hasOpenAffectedArea, measuredBoundaryArea, percentAffected } from '@/features/surveys/domain/attachedBoundary';
+import { deriveReportMeasurementsFromSurvey, hasOpenAffectedArea, measuredBoundaryArea } from '@/features/surveys/domain/attachedBoundary';
 import { boundaryState } from '@/features/surveys/domain/boundaryState';
 import { isAtPlot, type PlotPoint } from '@/features/surveys/domain/plotLocation';
 
@@ -75,11 +75,10 @@ export function ReportSurveyCard({
         }),
     [attachedUuid, surveys],
   );
-  const attachedMeasured = attachedSurvey ? measuredBoundaryArea(attachedSurvey) : null;
-  const attachedAreaSqm = attachedMeasured?.areaSqm ?? null;
-  const attachedPercent = attachedMeasured ? percentAffected(attachedMeasured) : null;
+  // Three separate figures: the whole plot, the affected ground inside it, and the share of the plot.
+  const attachedMeasurements = attachedSurvey ? deriveReportMeasurementsFromSurvey(attachedSurvey) : null;
   const pinOutsidePlot = Boolean(
-    attachedSurvey && reportLocation && attachedAreaSqm !== null && !isAtPlot(plotPoints(attachedSurvey), reportLocation),
+    attachedSurvey && reportLocation && attachedMeasurements !== null && !isAtPlot(plotPoints(attachedSurvey), reportLocation),
   );
 
   return (
@@ -101,14 +100,33 @@ export function ReportSurveyCard({
 
       {attachedUuid ? (
         <View style={styles.row}>
-          <Feather name={attachedAreaSqm === null ? 'alert-circle' : 'check-circle'} size={16} color={attachedAreaSqm === null ? theme.warning : theme.success} />
+          <Feather name={attachedMeasurements === null ? 'alert-circle' : 'check-circle'} size={16} color={attachedMeasurements === null ? theme.warning : theme.success} />
           <Text testID="field-report.survey-attached" style={[styles.help, { color: theme.text, flex: 1 }]}>
             {!attachedSurvey
               ? FIELD_SURVEY_COPY.linkMissing
-              : attachedAreaSqm === null
+              : attachedMeasurements === null
                 ? hasOpenAffectedArea(attachedSurvey) ? FIELD_SURVEY_COPY.linkAreaOpen : FIELD_SURVEY_COPY.linkUnfinished
-                : FIELD_SURVEY_COPY.linkAttached((attachedAreaSqm / 10_000).toFixed(2), attachedPercent === null ? null : String(attachedPercent))}
+                : FIELD_SURVEY_COPY.linkAttached}
           </Text>
+        </View>
+      ) : null}
+      {attachedMeasurements ? (
+        <View testID="field-report.survey-readouts" style={styles.readouts}>
+          <Readout
+            testID="field-report.survey-plot"
+            label={FIELD_SURVEY_COPY.linkPlotLabel}
+            value={attachedMeasurements.plotAreaHectares === null ? FIELD_SURVEY_COPY.notMeasured : FIELD_SURVEY_COPY.readoutHectares(attachedMeasurements.plotAreaHectares)}
+          />
+          <Readout
+            testID="field-report.survey-affected"
+            label={FIELD_SURVEY_COPY.linkAffectedLabel}
+            value={attachedMeasurements.affectedAreaHectares === null ? FIELD_SURVEY_COPY.notMeasured : FIELD_SURVEY_COPY.readoutHectares(attachedMeasurements.affectedAreaHectares)}
+          />
+          <Readout
+            testID="field-report.survey-portion"
+            label={FIELD_SURVEY_COPY.linkPortionLabel}
+            value={attachedMeasurements.affectedPortionPercent === null ? FIELD_SURVEY_COPY.notMeasured : FIELD_SURVEY_COPY.readoutPercent(attachedMeasurements.affectedPortionPercent)}
+          />
         </View>
       ) : null}
 
@@ -173,7 +191,21 @@ export function ReportSurveyCard({
   );
 }
 
+function Readout({ label, testID, value }: { label: string; testID: string; value: string }) {
+  const theme = useTheme();
+  return (
+    <View style={styles.readout}>
+      <Text style={[styles.readoutLabel, { color: theme.textSecondary }]}>{label}</Text>
+      <Text testID={testID} style={[styles.readoutValue, { color: theme.text }]}>{value}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  readouts: { flexDirection: 'row', gap: Spacing.sm },
+  readout: { flex: 1, gap: Spacing.xs },
+  readoutLabel: { ...Typography.caption },
+  readoutValue: { ...Typography.caption, fontWeight: '800' },
   card: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md },
   header: { gap: Spacing.xs },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },

@@ -22,6 +22,8 @@ const SCAN_ANSWER_TEXT =
 const REPORT_ID = '7ea3e6f0-b893-4fd3-b414-0b797e62ec8e';
 
 interface FormValues {
+  plotAreaHectares?: number | null;
+  plotAreaMeasurement?: 'measured' | 'not_measured';
   affectedAreaHectares?: number | null;
   affectedAreaMeasurement?: 'measured' | 'not_measured';
   affectedPortionPercent?: number | null;
@@ -381,6 +383,71 @@ async function goToStep(step: 1 | 2 | 3): Promise<void> {
   await act(async () => {
     fireEvent.press(screen.getByTestId(`field-report.step-${step}`));
   });
+}
+
+// ---- Survey-derived measurements -------------------------------------------------------------------
+const corner = (latitude: number, longitude: number) => ({ latitude, longitude, accuracyMeters: null, capturedAt: '2026-10-05T09:00:00.000Z', source: 'map' });
+// Independent oracle: 0.001° x 0.001° at 14°N is ~12 003 m² (1.2 ha); the quarter and half polygons below
+// cover a quarter and a half of it.
+const SURVEY_PLOT = [corner(14, 120), corner(14, 120.001), corner(14.001, 120.001), corner(14.001, 120)];
+const AFFECTED_QUARTER = { type: 'Polygon', coordinates: [[[120, 14], [120.0005, 14], [120.0005, 14.0005], [120, 14.0005], [120, 14]]] };
+const AFFECTED_HALF = { type: 'Polygon', coordinates: [[[120, 14], [120.001, 14], [120.001, 14.0005], [120, 14.0005], [120, 14]]] };
+
+function surveyRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    clientUuid: 'survey-1',
+    status: 'draft',
+    districtCode: 'D1',
+    remoteId: null,
+    lastSyncErrorCode: null,
+    capturedAt: '2026-10-05T09:00:00.000Z',
+    updatedAt: '2026-10-05T09:00:00.000Z',
+    waypointsJson: JSON.stringify(SURVEY_PLOT),
+    affectedAreaPolygonsJson: '[]',
+    affectedAreaWaypointsJson: '[]',
+    activeAffectedWaypointsJson: '[]',
+    affectedAreaSqm: null,
+    affectedAreaMeasurement: null,
+    ...overrides,
+  };
+}
+
+function expectReadouts(expected: { affected: string | RegExp; plot: string | RegExp; portion: string | RegExp }): void {
+  expect(screen.getByTestId('field-report.survey-plot')).toHaveTextContent(expected.plot);
+  expect(screen.getByTestId('field-report.survey-affected')).toHaveTextContent(expected.affected);
+  expect(screen.getByTestId('field-report.survey-portion')).toHaveTextContent(expected.portion);
+}
+
+/** Lets a test blur and re-focus the screen, like leaving for the map or My Boundaries and coming back. */
+function installFocusHarness(): { refocus: () => Promise<void>; restore: () => void } {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const expoRouter = jest.requireMock('expo-router') as { useFocusEffect: (callback: () => void | (() => void)) => void };
+  const screens = new Set<{ blur: () => void; focus: () => void }>();
+  const focusSpy = jest.spyOn(expoRouter, 'useFocusEffect').mockImplementation((callback) => {
+    React.useEffect(() => {
+      let cleanup = callback();
+      const entry = {
+        blur: () => { if (typeof cleanup === 'function') cleanup(); cleanup = undefined; },
+        focus: () => { cleanup = callback(); },
+      };
+      screens.add(entry);
+      return () => { screens.delete(entry); if (typeof cleanup === 'function') cleanup(); };
+    }, [callback]);
+  });
+  return {
+    refocus: async () => {
+      await act(async () => { screens.forEach((entry) => entry.blur()); });
+      await act(async () => { screens.forEach((entry) => entry.focus()); });
+      await act(async () => undefined);
+    },
+    restore: () => focusSpy.mockRestore(),
+  };
+}
+
+function attachSurvey(row: Record<string, unknown>): void {
+  mockFoundSurvey = row;
+  mockSavedSurveys = [row];
+  mockDraftState = { ...mockDraftState, data: draft({ fieldSurveyClientUuid: String(row.clientUuid) }) };
 }
 
 // There is no manual Save Draft button: the draft is kept by leaving through
@@ -1524,8 +1591,30 @@ describe('FieldReportScreen', () => {
 
     expect(mockSave).not.toHaveBeenCalled();
     expect(
-      screen.getByText(/Enter an area greater than 0/),
+      screen.getByText(/Enter an area of 0 or more/),
     ).toBeOnTheScreen();
+  });
+
+  // D2-A: a typed 0 is an explicit "checked and found none", saved as a measured zero, never dropped.
+  it('saves a typed 0 as a measured zero affected area', async () => {
+    await render(<FieldReportScreen />);
+
+    await goToStep(1);
+    await openTypedNumbers();
+    await act(async () => {
+      fireEvent.changeText(screen.getByTestId('field-report.affected-area-input'), '0');
+      fireEvent.changeText(screen.getByTestId('field-report.affected-portion-input'), '0');
+    });
+    await keepDraft();
+
+    expect(mockSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        affectedAreaHectares: 0,
+        affectedAreaMeasurement: 'measured',
+        affectedPortionPercent: 0,
+        affectedPortionMeasurement: 'measured',
+      }),
+    );
   });
 
   it('cancels the finalize confirmation without saving anything', async () => {
@@ -1960,7 +2049,7 @@ describe('FieldReportScreen', () => {
     expect(screen.queryByTestId('field-report.survey-remove')).toBeNull();
   });
 
-  it('fills the area and affected percent from the map when the inspector comes back', async () => {
+  it('fills plot, affected area and percent separately from the map when the inspector comes back', async () => {
     const React = jest.requireActual<typeof import('react')>('react');
     const expoRouter = jest.requireMock('expo-router') as { useFocusEffect: (callback: () => void | (() => void)) => void };
     const screens = new Set<{ blur: () => void; focus: () => void }>();
@@ -1976,40 +2065,32 @@ describe('FieldReportScreen', () => {
       }, [callback]);
     });
     try {
-      await render(<FieldReportScreen />);
+      const view = await render(<FieldReportScreen />);
       await act(async () => undefined);
       await goToStep(1);
       await act(async () => {
         fireEvent.press(screen.getByTestId('field-report.survey-open'));
       });
 
-      // The inspector draws a ~1.2 ha plot with a quarter of it affected, then returns.
-      const corner = (latitude: number, longitude: number) => ({ latitude, longitude, accuracyMeters: null, capturedAt: '2026-10-05T09:00:00.000Z', source: 'map' });
-      mockFoundSurvey = {
-        clientUuid: 'new-map-uuid',
-        status: 'draft',
-        districtCode: 'D1',
-        remoteId: null,
-        lastSyncErrorCode: null,
-        capturedAt: '2026-10-05T09:00:00.000Z',
-        waypointsJson: JSON.stringify([corner(14, 120), corner(14, 120.001), corner(14.001, 120.001), corner(14.001, 120)]),
-        affectedAreaPolygonsJson: JSON.stringify([{ type: 'Polygon', coordinates: [[[120, 14], [120.0005, 14], [120.0005, 14.0005], [120, 14.0005], [120, 14]]] }]),
-        affectedAreaWaypointsJson: '[]',
-        activeAffectedWaypointsJson: '[]',
-      };
+      // The inspector draws a ~1.2 ha plot with a quarter of it affected, then returns. The report was
+      // linked to the new map before leaving, so its draft now holds that link.
+      mockFoundSurvey = surveyRow({ clientUuid: 'new-map-uuid', affectedAreaPolygonsJson: JSON.stringify([AFFECTED_QUARTER]) });
+      mockDraftState = { ...mockDraftState, data: draft({ fieldSurveyClientUuid: 'new-map-uuid' }) };
+      await view.rerender(<FieldReportScreen />);
       await act(async () => { screens.forEach((entry) => entry.blur()); });
       await act(async () => { screens.forEach((entry) => entry.focus()); });
+      await act(async () => undefined);
 
-      // The map fills the numbers; they stay folded and show in the summary.
-      expect(screen.queryByTestId('field-report.affected-area-input')).toBeNull();
-      expect(screen.getByTestId('field-report.area-manual.summary')).toHaveTextContent(/ha · .*% affected/);
-      await openTypedNumbers();
-      const area = Number(screen.getByTestId('field-report.affected-area-input').props.value);
-      const portion = Number(screen.getByTestId('field-report.affected-portion-input').props.value);
-      expect(area).toBeGreaterThan(1.19);
-      expect(area).toBeLessThan(1.21);
-      expect(portion).toBeGreaterThan(24.5);
-      expect(portion).toBeLessThan(25.5);
+      // Plot, affected ground and share stay separate: the plot is never written into the affected area.
+      expectReadouts({ plot: /^1\.2 ha$/, affected: /^0\.3 ha$/, portion: '25%' });
+      await keepDraft();
+      expect(mockSave).toHaveBeenLastCalledWith(expect.objectContaining({
+        affectedAreaHectares: expect.closeTo(0.3, 1),
+        affectedAreaMeasurement: 'measured',
+        affectedPortionPercent: 25,
+        plotAreaHectares: expect.closeTo(1.2, 1),
+        plotAreaMeasurement: 'measured',
+      }));
     } finally {
       focusSpy.mockRestore();
     }
@@ -2116,14 +2197,12 @@ describe('FieldReportScreen', () => {
       await act(async () => { screens.forEach((entry) => entry.focus()); });
 
       expect(mockSave).toHaveBeenCalledWith({ fieldSurveyClientUuid: 'replacement-draft-uuid' });
-      expect(screen.getByTestId('field-report.area-manual.summary')).toHaveTextContent(/ha · .*% affected/);
-      await openTypedNumbers();
-      const area = Number(screen.getByTestId('field-report.affected-area-input').props.value);
-      const portion = Number(screen.getByTestId('field-report.affected-portion-input').props.value);
-      expect(area).toBeGreaterThan(1.19);
-      expect(area).toBeLessThan(1.21);
-      expect(portion).toBeGreaterThan(24.5);
-      expect(portion).toBeLessThan(25.5);
+      // The report now links the replacement draft.
+      mockDraftState = { ...mockDraftState, data: draft({ fieldSurveyClientUuid: 'replacement-draft-uuid' }) };
+      await act(async () => { screens.forEach((entry) => entry.blur()); });
+      await act(async () => { screens.forEach((entry) => entry.focus()); });
+      await act(async () => undefined);
+      expectReadouts({ plot: /^1\.2 ha$/, affected: /^0\.3 ha$/, portion: '25%' });
     } finally {
       clearReplacedReportSurveys();
       focusSpy.mockRestore();
@@ -2842,6 +2921,256 @@ describe('FieldReportScreen', () => {
       await goToStep(3);
       expect(screen.queryByText(REPORT_ID)).not.toBeOnTheScreen();
       expect(screen.queryByText('Report identifiers')).not.toBeOnTheScreen();
+    });
+  });
+
+  describe('measurements taken from the attached map (no stale values)', () => {
+    let harness: ReturnType<typeof installFocusHarness>;
+    beforeEach(() => { harness = installFocusHarness(); });
+    afterEach(() => harness.restore());
+
+    // (1) Resizing the affected polygons while away updates hectares and percent on return.
+    it('updates the affected hectares and percent when the map was resized', async () => {
+      attachSurvey(surveyRow({ affectedAreaPolygonsJson: JSON.stringify([AFFECTED_QUARTER]) }));
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+      await goToStep(1);
+      expectReadouts({ plot: /^1\.2 ha$/, affected: /^0\.3 ha$/, portion: '25%' });
+
+      mockFoundSurvey = surveyRow({ affectedAreaPolygonsJson: JSON.stringify([AFFECTED_HALF]), updatedAt: '2026-10-05T10:00:00.000Z' });
+      await harness.refocus();
+      expectReadouts({ plot: /^1\.2 ha$/, affected: /^0\.6 ha$/, portion: '50%' });
+
+      await keepDraft();
+      expect(mockSave).toHaveBeenLastCalledWith(expect.objectContaining({
+        affectedAreaHectares: expect.closeTo(0.6, 1),
+        affectedPortionPercent: 50,
+      }));
+    });
+
+    // (2) Deleting every affected polygon resets both figures to not measured, never to 0 or the old values.
+    it('resets hectares and percent to not measured when every affected area was deleted', async () => {
+      attachSurvey(surveyRow({ affectedAreaPolygonsJson: JSON.stringify([AFFECTED_QUARTER]) }));
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+      await goToStep(1);
+      expectReadouts({ plot: /^1\.2 ha$/, affected: /^0\.3 ha$/, portion: '25%' });
+
+      mockFoundSurvey = surveyRow({ updatedAt: '2026-10-05T10:00:00.000Z' });
+      await harness.refocus();
+      expectReadouts({ plot: /^1\.2 ha$/, affected: FIELD_SURVEY_COPY.notMeasured, portion: FIELD_SURVEY_COPY.notMeasured });
+
+      await keepDraft();
+      expect(mockSave).toHaveBeenLastCalledWith(expect.objectContaining({
+        affectedAreaHectares: null,
+        affectedAreaMeasurement: 'not_measured',
+        affectedPortionPercent: null,
+        affectedPortionMeasurement: 'not_measured',
+        plotAreaHectares: expect.closeTo(1.2, 1),
+      }));
+    });
+
+    // (3) An unclosed or invalid shape clears the derived values and blocks finalize.
+    it('clears the derived values and blocks finalize when the map was edited into an unfinished shape', async () => {
+      attachSurvey(surveyRow({ affectedAreaPolygonsJson: JSON.stringify([AFFECTED_QUARTER]) }));
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+      await goToStep(1);
+      expectReadouts({ plot: /^1\.2 ha$/, affected: /^0\.3 ha$/, portion: '25%' });
+
+      mockFoundSurvey = surveyRow({
+        affectedAreaPolygonsJson: JSON.stringify([AFFECTED_QUARTER]),
+        activeAffectedWaypointsJson: JSON.stringify([corner(14.0002, 120.0002)]),
+        updatedAt: '2026-10-05T10:00:00.000Z',
+      });
+      await harness.refocus();
+      expect(screen.queryByTestId('field-report.survey-readouts')).toBeNull();
+      expect(screen.getByTestId('field-report.survey-attached')).toHaveTextContent(FIELD_SURVEY_COPY.linkAreaOpen);
+
+      await keepDraft();
+      expect(mockSave).toHaveBeenLastCalledWith(expect.objectContaining({
+        affectedAreaHectares: null,
+        affectedAreaMeasurement: 'not_measured',
+        affectedPortionPercent: null,
+        plotAreaHectares: null,
+        plotAreaMeasurement: 'not_measured',
+      }));
+      await goToStep(3);
+      expect(screen.getByTestId('field-report.ready.attached_boundary')).toBeOnTheScreen();
+    });
+
+    // (4) Attaching a saved survey fills plot, affected ground and percent.
+    it('fills plot, affected area and percent when a saved map is attached', async () => {
+      mockSavedSurveys = [surveyRow({ status: 'synced', remoteId: 'remote-1', affectedAreaPolygonsJson: JSON.stringify([AFFECTED_QUARTER]) })];
+      const view = await render(<FieldReportScreen />);
+      await act(async () => undefined);
+      await goToStep(1);
+      await act(async () => {
+        fireEvent.press(screen.getByLabelText(`Show ${FIELD_SURVEY_COPY.linkSavedTitle}`));
+      });
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.survey-attach.survey-1'));
+      });
+      expect(mockSave).toHaveBeenCalledWith({ fieldSurveyClientUuid: 'survey-1' });
+
+      attachSurvey(surveyRow({ status: 'synced', remoteId: 'remote-1', affectedAreaPolygonsJson: JSON.stringify([AFFECTED_QUARTER]) }));
+      await view.rerender(<FieldReportScreen />);
+      await harness.refocus();
+      expectReadouts({ plot: /^1\.2 ha$/, affected: /^0\.3 ha$/, portion: '25%' });
+      await keepDraft();
+      expect(mockSave).toHaveBeenLastCalledWith(expect.objectContaining({
+        affectedAreaHectares: expect.closeTo(0.3, 1),
+        affectedPortionPercent: 25,
+        plotAreaHectares: expect.closeTo(1.2, 1),
+        fieldSurveyClientUuid: 'survey-1',
+      }));
+    });
+
+    // (5) Detaching removes exactly the figures the map supplied.
+    it('clears the figures that came from the map when it is detached', async () => {
+      attachSurvey(surveyRow({ affectedAreaPolygonsJson: JSON.stringify([AFFECTED_QUARTER]) }));
+      const view = await render(<FieldReportScreen />);
+      await act(async () => undefined);
+      await goToStep(1);
+      expectReadouts({ plot: /^1\.2 ha$/, affected: /^0\.3 ha$/, portion: '25%' });
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('field-report.survey-remove'));
+      });
+      expect(mockSave).toHaveBeenCalledWith({ fieldSurveyClientUuid: null });
+      mockFoundSurvey = null;
+      mockDraftState = { ...mockDraftState, data: draft({ fieldSurveyClientUuid: null }) };
+      await view.rerender(<FieldReportScreen />);
+      await harness.refocus();
+
+      expect(screen.queryByTestId('field-report.survey-readouts')).toBeNull();
+      await openTypedNumbers();
+      expect(screen.getByTestId('field-report.affected-area-input')).toHaveProp('value', '');
+      expect(screen.getByTestId('field-report.affected-portion-input')).toHaveProp('value', '');
+      mockSave.mockClear();
+      await keepDraft();
+      const saved = (mockSave.mock.calls.at(-1) as unknown[])[0] as FormValues;
+      expect(saved).toMatchObject({ affectedAreaHectares: null, affectedAreaMeasurement: 'not_measured', affectedPortionPercent: null });
+      expect(saved).not.toHaveProperty('plotAreaHectares');
+    });
+
+    // Intent: numbers typed by hand with no map keep working exactly as before.
+    it('keeps numbers typed without a map', async () => {
+      await render(<FieldReportScreen />);
+      await goToStep(1);
+      await openTypedNumbers();
+      await act(async () => {
+        fireEvent.changeText(screen.getByTestId('field-report.affected-area-input'), '0.8');
+        fireEvent.changeText(screen.getByTestId('field-report.affected-portion-input'), '40');
+      });
+      await keepDraft();
+      const saved = (mockSave.mock.calls.at(-1) as unknown[])[0] as FormValues;
+      expect(saved).toMatchObject({ affectedAreaHectares: 0.8, affectedPortionPercent: 40, affectedAreaMeasurement: 'measured' });
+      expect(saved).not.toHaveProperty('plotAreaHectares');
+    });
+
+    // (6) A map edited elsewhere (My Boundaries) re-syncs the report when this screen is focused again.
+    it('re-syncs from a map edited elsewhere when the report screen is focused again', async () => {
+      attachSurvey(surveyRow({ status: 'draft', affectedAreaPolygonsJson: JSON.stringify([AFFECTED_QUARTER]) }));
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+      await goToStep(1);
+      expectReadouts({ plot: /^1\.2 ha$/, affected: /^0\.3 ha$/, portion: '25%' });
+
+      // Edited from My Boundaries: a different plot shape and no affected area, so every figure moves.
+      mockFoundSurvey = surveyRow({
+        waypointsJson: JSON.stringify([corner(14, 120), corner(14, 120.002), corner(14.001, 120.002), corner(14.001, 120)]),
+        updatedAt: '2026-10-06T08:00:00.000Z',
+      });
+      await harness.refocus();
+      expectReadouts({ plot: /^2\.39 ha$/, affected: FIELD_SURVEY_COPY.notMeasured, portion: FIELD_SURVEY_COPY.notMeasured });
+    });
+
+    // (7) A stale checkpoint cannot restore numbers from an earlier map revision.
+    it('does not restore checkpoint numbers taken from an older map revision', async () => {
+      attachSurvey(surveyRow({ updatedAt: '2026-10-05T10:00:00.000Z', affectedAreaPolygonsJson: JSON.stringify([AFFECTED_QUARTER]) }));
+      mockReadFormCheckpoint.mockReturnValue({
+        checkpoint: {
+          affectedAreaChoice: 'measured',
+          affectedAreaText: '9.5',
+          affectedPortionChoice: 'measured',
+          affectedPortionText: '88',
+          barangay: 'Wawa',
+          caneClass: '',
+          cropAge: '',
+          farmerName: 'Restored Farmer',
+          mismatchReported: null,
+          municipality: 'Nasugbu',
+          notes: '',
+          province: 'Batangas',
+          reporterObservationText: '',
+          reporterSuspectedCondition: '',
+          savedAt: '2026-10-05T09:30:00.000Z',
+          step: 1,
+          surveyRevision: 'survey-1@2026-10-05T09:00:00.000Z',
+          variety: '',
+        },
+        updatedAt: '2026-10-05T09:30:00.000Z',
+      });
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+
+      // Other fields still restore; the old numbers do not.
+      expect(screen.getByTestId('field-report.farmer-name-input')).toHaveProp('value', 'Restored Farmer');
+      expectReadouts({ plot: /^1\.2 ha$/, affected: /^0\.3 ha$/, portion: '25%' });
+      await keepDraft();
+      const saved = (mockSave.mock.calls.at(-1) as unknown[])[0] as FormValues;
+      expect(saved.affectedAreaHectares).not.toBe(9.5);
+      expect(saved.affectedPortionPercent).toBe(25);
+    });
+
+    it('writes the map revision into the checkpoint so a later change is noticed', async () => {
+      jest.useFakeTimers();
+      try {
+        attachSurvey(surveyRow({ updatedAt: '2026-10-05T10:00:00.000Z', affectedAreaPolygonsJson: JSON.stringify([AFFECTED_QUARTER]) }));
+        await render(<FieldReportScreen />);
+        await act(async () => undefined);
+        await act(async () => {
+          fireEvent.changeText(screen.getByTestId('field-report.farmer-name-input'), 'Maria Santos');
+        });
+        await act(async () => { jest.advanceTimersByTime(800); });
+        expect(mockWriteFormCheckpoint).toHaveBeenCalled();
+        const written = mockWriteFormCheckpoint.mock.calls.at(-1) as unknown[];
+        expect(written[written.length - 1]).toMatchObject({ surveyRevision: 'survey-1@2026-10-05T10:00:00.000Z' });
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    // AC-2: a plot-only map shows Not measured and saves no affected area.
+    it('shows Not measured and saves no affected area for a plot-only map', async () => {
+      attachSurvey(surveyRow());
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+      await goToStep(1);
+      expectReadouts({ plot: /^1\.2 ha$/, affected: FIELD_SURVEY_COPY.notMeasured, portion: FIELD_SURVEY_COPY.notMeasured });
+      await keepDraft();
+      expect(mockSave).toHaveBeenLastCalledWith(expect.objectContaining({
+        affectedAreaHectares: null,
+        affectedAreaMeasurement: 'not_measured',
+        plotAreaHectares: expect.closeTo(1.2, 1),
+      }));
+    });
+
+    // AC-4(b): an explicitly confirmed zero on the map reads and saves as 0 ha and 0%.
+    it('saves a confirmed no-affected-area map as measured 0 ha and 0%', async () => {
+      attachSurvey(surveyRow({ affectedAreaMeasurement: 'measured', affectedAreaSqm: 0 }));
+      await render(<FieldReportScreen />);
+      await act(async () => undefined);
+      await goToStep(1);
+      expectReadouts({ plot: /^1\.2 ha$/, affected: '0 ha', portion: '0%' });
+      await keepDraft();
+      expect(mockSave).toHaveBeenLastCalledWith(expect.objectContaining({
+        affectedAreaHectares: 0,
+        affectedAreaMeasurement: 'measured',
+        affectedPortionPercent: 0,
+        affectedPortionMeasurement: 'measured',
+      }));
     });
   });
 

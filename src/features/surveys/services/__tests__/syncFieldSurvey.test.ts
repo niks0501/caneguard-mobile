@@ -1,3 +1,4 @@
+import { fieldSurveyMeasurementMigration } from '../../../../../test/fieldSurveyMeasurementMigration';
 import { readFileSync } from 'node:fs';
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import { drizzle } from 'drizzle-orm/expo-sqlite';
@@ -43,6 +44,7 @@ function openDatabase(): { database: CaneGuardDatabase; native: DatabaseSync } {
   ]) {
     native.exec(readFileSync(`drizzle/${migration}`, 'utf8').replaceAll('--> statement-breakpoint', ''));
   }
+  native.exec(fieldSurveyMeasurementMigration());
   const client = {
     prepareSync(sql: string) {
       const statement = native.prepare(sql);
@@ -76,6 +78,83 @@ const affectedWaypoints: SurveyWaypoint[] = [
   { latitude: 14.0008, longitude: 120.0008, source: 'map', accuracyMeters: null, capturedAt: '2026-10-31T02:02:00.000Z' },
   { latitude: 14.0008, longitude: 120.0002, source: 'gps', accuracyMeters: 2.8, capturedAt: '2026-10-31T02:03:00.000Z' },
 ];
+
+const plotWaypoints: SurveyWaypoint[] = [
+  { latitude: 14, longitude: 120, source: 'map', accuracyMeters: null, capturedAt: '2026-10-31T02:00:00.000Z' },
+  { latitude: 14, longitude: 120.001, source: 'map', accuracyMeters: null, capturedAt: '2026-10-31T02:01:00.000Z' },
+  { latitude: 14.001, longitude: 120.001, source: 'map', accuracyMeters: null, capturedAt: '2026-10-31T02:02:00.000Z' },
+  { latitude: 14.001, longitude: 120, source: 'map', accuracyMeters: null, capturedAt: '2026-10-31T02:03:00.000Z' },
+];
+
+describe('syncFieldSurvey affected-area measurement state', () => {
+  async function sendPlot(clientUuid: string, options: { affected?: boolean; zeroConfirmed?: boolean }) {
+    const { database } = openDatabase();
+    const polygons = options.affected ? [affectedPolygon] : [];
+    const sets = options.affected ? [affectedWaypoints] : [];
+    await saveFieldSurveyDraft(database, {
+      authorRole: 'field_reporter',
+      capturedAt: '2026-10-31T02:03:00.000Z',
+      clientUuid,
+      districtCode: 'D-01',
+      ownerIdentity: 'owner-1',
+      waypoints: plotWaypoints,
+      affectedAreaPolygons: polygons,
+      affectedAreaWaypoints: sets,
+      affectedZeroConfirmed: options.zeroConfirmed,
+    });
+    markFieldSurveyPending(
+      database, clientUuid, 'owner-1', 'D-01', plotPolygon, ringArea(plotPolygon.coordinates[0]), '2026-10-31T02:03:00.000Z',
+      polygons, options.affected ? ringArea(affectedPolygon.coordinates[0]) : options.zeroConfirmed ? 0 : null, sets,
+    );
+    jest.mocked(apiRequest).mockResolvedValue({ id: 'remote-1', status: 'kept' });
+    await syncFieldSurvey({ allowImmediateRetries: false, clientUuid, database, districtCode: 'D-01', ownerIdentity: 'owner-1', token: 'access-token' });
+    return { body: JSON.parse(String(jest.mocked(apiRequest).mock.calls.at(-1)?.[1]?.body)), database };
+  }
+
+  // AC-4(a): a plot-only survey sends an unmeasured affected area, never a forced 0.
+  it('sends null with not_measured for a plot-only survey', async () => {
+    const { body } = await sendPlot('survey-plot-only', {});
+    expect(body.affected_area_polygons).toEqual([]);
+    expect(body.affected_area_sqm).toBeNull();
+    expect(body.affected_area_measurement).toBe('not_measured');
+    expect(body.area_sqm).toBeGreaterThan(11_900);
+  });
+
+  // AC-4(b): only an explicit confirmation sends 0, and it says it was measured.
+  it('sends 0 with measured only for a confirmed no-affected-area survey', async () => {
+    const { body } = await sendPlot('survey-zero', { zeroConfirmed: true });
+    expect(body.affected_area_polygons).toEqual([]);
+    expect(body.affected_area_sqm).toBe(0);
+    expect(body.affected_area_measurement).toBe('measured');
+  });
+
+  it('sends the measured union with measured for drawn affected areas', async () => {
+    const { body } = await sendPlot('survey-patch', { affected: true });
+    expect(body.affected_area_sqm).toBeCloseTo(ringArea(affectedPolygon.coordinates[0]), 4);
+    expect(body.affected_area_measurement).toBe('measured');
+  });
+
+  // AC-6: a row stored before the measurement state existed (a forced 0, no enum) still syncs, as not measured.
+  it('syncs an older row that stored a forced 0 as not measured', async () => {
+    const { database, native } = openDatabase();
+    native.prepare(`INSERT INTO field_surveys (
+      client_uuid, owner_identity, district_code, waypoints_json, polygon_json, area_sqm, affected_area_polygons_json,
+      affected_area_sqm, affected_area_waypoints_json, active_affected_waypoints_json, captured_at, status, author_role, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      'legacy-forced-zero', 'owner-1', 'D-01', JSON.stringify(plotWaypoints), JSON.stringify(plotPolygon), ringArea(plotPolygon.coordinates[0]),
+      '[]', 0, '[]', '[]', '2026-10-31T02:03:00.000Z', 'pending', 'field_reporter', '2026-10-31T02:03:00.000Z', '2026-10-31T02:03:00.000Z',
+    );
+    jest.mocked(apiRequest).mockResolvedValue({ id: 'remote-legacy', status: 'kept' });
+
+    await expect(syncFieldSurvey({
+      allowImmediateRetries: false, clientUuid: 'legacy-forced-zero', database, districtCode: 'D-01', ownerIdentity: 'owner-1', token: 'access-token',
+    })).resolves.toEqual({ status: 'synced', remoteId: 'remote-legacy' });
+    const body = JSON.parse(String(jest.mocked(apiRequest).mock.calls.at(-1)?.[1]?.body));
+    expect(body.affected_area_sqm).toBeNull();
+    expect(body.affected_area_measurement).toBe('not_measured');
+    native.close();
+  });
+});
 
 describe('syncFieldSurvey upload contract', () => {
   async function sendNamed(clientUuid: string, label: string | null, outlineFromRemoteId: string | null = null) {

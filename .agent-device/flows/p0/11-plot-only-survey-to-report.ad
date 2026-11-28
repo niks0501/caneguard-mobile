@@ -1,0 +1,68 @@
+context platform=android timeout=240000
+
+# INTENT: A plot-only map used in a report fills the total plot area only. Affected
+# ground and the share of the plot read "Not measured" (never the plot size, 0 ha or
+# 0%); confirming "No affected area found" on the map turns them into a measured
+# 0 ha / 0%. Verifies the three separate readouts on the report's Place step.
+# Written for the measurement-mapping change (mobile PR 2). NOT YET REPLAYED on a
+# device: tap coordinates assume the 1080x2400 Android target with the survey map
+# filling the screen; re-anchor them on the first device run.
+# Preflow: same as p0/10 (stage-media + grant-permissions); starts from a Rust result.
+# AUTH_EMAIL / AUTH_PASSWORD: private verified disposable field reporter.
+
+open "com.niks0501.caneguard" --relaunch --platform android
+wait "label=\"Welcome back\"" 120000
+fill "id=auth.email-input" "${AUTH_EMAIL}"
+fill "id=auth.password-input" "${AUTH_PASSWORD}"
+click "id=auth.login-submit"
+wait "id=home.screen" 120000
+open "com.niks0501.caneguard" "caneguardmobile:///scan" --platform android
+wait "id=scan.screen" 30000
+click "id=scan.choose-gallery"
+wait stable 2000 15000
+find "Photo taken on" click --first
+wait "id=scan.symptom-checklist-screen" 30000
+wait "label=\"Photo checked\"" 120000
+click "id=scan.symptom-rust"
+click "id=scan.continue-to-result"
+wait "label=\"Possible result: Rust\"" 30000
+scroll down 0.5 --settle
+wait "id=scan.report-to-office" 10000
+click "id=scan.report-to-office"
+wait "id=field-report.screen" 30000
+wait "id=field-report.survey-card" 30000
+
+# Draw a plot only: four taps around the field, no affected area.
+click "id=field-report.survey-open"
+wait "id=field-survey.screen" 30000
+click "id=field-survey.tap"
+click 300 900
+click 780 900
+click 780 1400
+click 300 1400
+wait "id=field-survey.use-in-report enabled=true" 30000
+# The map has no affected area yet: the quality line says so, and the explicit choice is offered.
+click "id=field-survey.more"
+wait "id=field-survey.quality-affected" 10000
+is visible "label=\"Affected area: Not measured\""
+is visible "id=field-survey.no-affected.action"
+click "id=field-survey.more"
+click "id=field-survey.use-in-report"
+
+# Plot-only: three readouts, only the plot is filled.
+wait "id=field-report.survey-readouts" 30000
+is visible "id=field-report.survey-plot"
+is visible "id=field-report.survey-affected"
+is visible "id=field-report.survey-portion"
+is visible "label=\"Not measured\""
+
+# Confirm "no affected area found" on the map: affected ground and share become 0 ha / 0%.
+click "id=field-report.survey-open"
+wait "id=field-survey.screen" 30000
+click "id=field-survey.no-affected.action"
+wait "id=field-survey.use-in-report enabled=true" 30000
+click "id=field-survey.use-in-report"
+wait "id=field-report.survey-readouts" 30000
+is visible "label=\"0 ha\""
+is visible "label=\"0%\""
+close

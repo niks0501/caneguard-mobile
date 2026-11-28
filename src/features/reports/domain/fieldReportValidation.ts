@@ -33,6 +33,8 @@ const MAX_FIELD_NOTES_LENGTH = FIELD_NOTES_MAX_LENGTH;
 const MAX_REPORTER_SUSPECTED_CONDITION_LENGTH = 120;
 const MAX_REPORTER_OBSERVATION_TEXT_LENGTH = 1_000;
 const MAX_AFFECTED_AREA_HECTARES = 10_000;
+/** The widest plot area the v3 contract accepts (`plot_area_hectares` maximum). */
+export const MAX_PLOT_AREA_HECTARES = 99_999_999.9999;
 function hasCompleteClassScores(
   scores: FieldReportSubmissionEvidence['classScores'],
 ): boolean {
@@ -109,6 +111,8 @@ export function validateManualMapLocationInput(
 export function normalizeFinalizeFieldReportInput(
   input: FinalizeFieldReportInput,
 ): {
+  plotAreaHectares: number | null;
+  plotAreaMeasurement: MeasurementProvenance;
   affectedAreaHectares: number | null;
   affectedAreaMeasurement: MeasurementProvenance;
   affectedPortionPercent: number | null;
@@ -141,7 +145,15 @@ export function normalizeFinalizeFieldReportInput(
     input.affectedPortionPercent,
     validateAffectedPortionPercent,
   );
+  const plotAreaHectares = input.plotAreaHectares ?? null;
+  const plotMeasurement = validateMeasurementPairing(
+    input.plotAreaMeasurement ?? resolveMeasurementProvenance(plotAreaHectares),
+    plotAreaHectares,
+    validatePlotAreaHectares,
+  );
   return {
+    plotAreaHectares,
+    plotAreaMeasurement: plotMeasurement,
     affectedAreaHectares: input.affectedAreaHectares,
     affectedAreaMeasurement: areaMeasurement,
     affectedPortionPercent: input.affectedPortionPercent,
@@ -317,6 +329,8 @@ export function getMissingSubmissionRequirements(
 export function normalizeFieldReportDraftInput(
   input: SaveFieldReportDraftInput,
 ): {
+  plotAreaHectares?: number | null;
+  plotAreaMeasurement?: MeasurementProvenance;
   affectedAreaHectares?: number | null;
   affectedAreaMeasurement?: MeasurementProvenance;
   affectedPortionPercent?: number | null;
@@ -416,6 +430,15 @@ export function normalizeFieldReportDraftInput(
             input.reporterObservationText,
             MAX_REPORTER_OBSERVATION_TEXT_LENGTH,
           ),
+        }),
+    ...(input.plotAreaHectares === undefined
+      ? {}
+      : {
+          plotAreaHectares: normalizeOptionalPlotArea(input.plotAreaHectares),
+          plotAreaMeasurement:
+            input.plotAreaMeasurement === undefined
+              ? resolveMeasurementProvenance(input.plotAreaHectares)
+              : normalizeMeasurementProvenance(input.plotAreaMeasurement),
         }),
     ...(input.affectedAreaHectares === undefined
       ? {}
@@ -548,14 +571,31 @@ function normalizeOptionalAffectedPortion(value: number | null): number | null {
   return value;
 }
 
+function normalizeOptionalPlotArea(value: number | null): number | null {
+  if (value === null) {
+    return null;
+  }
+  validatePlotAreaHectares(value);
+  return value;
+}
+
+function validatePlotAreaHectares(value: number): void {
+  if (!Number.isFinite(value) || value <= 0 || value > MAX_PLOT_AREA_HECTARES) {
+    invalid(
+      `Plot area must be greater than 0 and at most ${MAX_PLOT_AREA_HECTARES} hectares.`,
+    );
+  }
+}
+
+/** 0 is a confirmed "no affected area found"; an unmeasured area is null, never 0. */
 function validateAffectedAreaHectares(value: number): void {
   if (
     !Number.isFinite(value) ||
-    value <= 0 ||
+    value < 0 ||
     value > MAX_AFFECTED_AREA_HECTARES
   ) {
     invalid(
-      `Affected area must be greater than 0 and at most ${MAX_AFFECTED_AREA_HECTARES} hectares.`,
+      `Affected area must be 0 or more and at most ${MAX_AFFECTED_AREA_HECTARES} hectares.`,
     );
   }
 }

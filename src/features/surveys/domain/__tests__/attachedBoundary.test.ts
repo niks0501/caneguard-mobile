@@ -1,8 +1,11 @@
 import {
+  deriveReportMeasurementsFromSurvey,
   hasOpenAffectedArea,
+  isConfirmedZeroSurvey,
   measuredBoundaryArea,
   planAttachedBoundarySend,
-  reportAreaFromBoundary,
+  sqmToHectares,
+  UNMEASURED_REPORT_MEASUREMENTS,
   type AttachedBoundaryInput, percentAffected } from '@/features/surveys/domain/attachedBoundary';
 import type { SurveyPolygon, SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
 
@@ -60,7 +63,19 @@ describe('planAttachedBoundarySend', () => {
     // latitude 14 (108.01 m) is ~12 003 m².
     expect(plan.send.areaSqm).toBeGreaterThan(11_900);
     expect(plan.send.areaSqm).toBeLessThan(12_100);
+    // Only the plot was measured: the affected ground is unmeasured, never 0.
+    expect(plan.send.affectedAreaSqm).toBeNull();
+  });
+
+  // Intent: a confirmed "no affected area found" is the only way a plot-only boundary sends 0.
+  it('sends 0 only when the inspector explicitly confirmed no affected area', () => {
+    const plan = planAttachedBoundarySend(row({ affectedAreaMeasurement: 'measured', affectedAreaSqm: 0 }), 'D-01');
+    if (plan.status !== 'queue') throw new Error('expected a queued boundary');
     expect(plan.send.affectedAreaSqm).toBe(0);
+    // A legacy row that merely stored 0 with no measurement state stays unmeasured.
+    const legacy = planAttachedBoundarySend(row({ affectedAreaSqm: 0 }), 'D-01');
+    if (legacy.status !== 'queue') throw new Error('expected a queued boundary');
+    expect(legacy.send.affectedAreaSqm).toBeNull();
   });
 
   it('queues a boundary the office asked to fix, using its current measurement', () => {
@@ -151,34 +166,107 @@ describe('planAttachedBoundarySend', () => {
   });
 });
 
-describe('measuredBoundaryArea and reportAreaFromBoundary', () => {
-  // Intent: a finished map fills the report: plot size in hectares, affected share in percent.
-  it('turns a measured plot with an affected area into report values', () => {
-    const measured = measuredBoundaryArea(row({
-      affectedAreaPolygonsJson: JSON.stringify([affectedShape]),
-      affectedAreaWaypointsJson: JSON.stringify([affectedPlot]),
-    }));
-    expect(measured).not.toBeNull();
-    if (!measured) throw new Error('expected a measurement');
-    const filled = reportAreaFromBoundary(measured);
-    // ~12 003 m² plot (see the oracle above) is ~1.2 ha; the affected square is a quarter of it.
-    expect(filled.areaHectares).toBeGreaterThan(1.19);
-    expect(filled.areaHectares).toBeLessThan(1.21);
-    expect(filled.affectedPortionPercent).toBeGreaterThan(24.5);
-    expect(filled.affectedPortionPercent).toBeLessThan(25.5);
+const withAffected = (overrides: Partial<AttachedBoundaryInput> = {}) => row({
+  affectedAreaPolygonsJson: JSON.stringify([affectedShape]),
+  affectedAreaWaypointsJson: JSON.stringify([affectedPlot]),
+  ...overrides,
+});
+
+describe('deriveReportMeasurementsFromSurvey', () => {
+  // AC-1 intent: a 1.20 ha plot with a 0.30 ha affected patch keeps three separate figures.
+  // Independent oracle (see above): the plot is ~12 003 m² and the affected square is a quarter of it.
+  it('keeps plot area, affected ground and affected share apart', () => {
+    const measurements = deriveReportMeasurementsFromSurvey(withAffected());
+    if (!measurements) throw new Error('expected measurements');
+    expect(measurements.plotAreaHectares).toBeCloseTo(1.2, 1);
+    expect(measurements.plotAreaMeasurement).toBe('measured');
+    expect(measurements.affectedAreaHectares).toBeCloseTo(0.3, 1);
+    expect(measurements.affectedAreaMeasurement).toBe('measured');
+    expect(measurements.affectedPortionPercent).toBe(25);
+    expect(measurements.affectedPortionMeasurement).toBe('measured');
+    // The bug this replaces reported the plot area (~1.2 ha) as the affected ground.
+    expect(measurements.affectedAreaHectares).not.toBeCloseTo(measurements.plotAreaHectares ?? 0, 1);
   });
 
-  // Intent: a plot without affected areas fills the area only; the percent stays the inspector's.
-  it('leaves the percent alone when no affected area was drawn', () => {
-    const measured = measuredBoundaryArea(row());
-    if (!measured) throw new Error('expected a measurement');
-    expect(reportAreaFromBoundary(measured).affectedPortionPercent).toBeNull();
+  // AC-2 intent: a plot-only survey never turns the plot into affected ground.
+  it('leaves the affected figures not measured for a plot-only boundary', () => {
+    const measurements = deriveReportMeasurementsFromSurvey(row());
+    if (!measurements) throw new Error('expected measurements');
+    expect(measurements.plotAreaHectares).toBeCloseTo(1.2, 1);
+    expect(measurements.plotAreaMeasurement).toBe('measured');
+    expect(measurements).toMatchObject({
+      affectedAreaHectares: null,
+      affectedAreaMeasurement: 'not_measured',
+      affectedPortionPercent: null,
+      affectedPortionMeasurement: 'not_measured',
+    });
   });
 
-  // Intent: hectares read like the weekly report, and a tiny plot never rounds to zero.
-  it('rounds hectares to two decimals but keeps tiny plots above zero', () => {
-    expect(reportAreaFromBoundary({ areaSqm: 18_336, affectedAreaSqm: 0, affectedAreaCount: 0 }).areaHectares).toBe(1.83);
-    expect(reportAreaFromBoundary({ areaSqm: 30, affectedAreaSqm: 0, affectedAreaCount: 0 }).areaHectares).toBe(0.003);
+  // AC-4(a): older rows stored a forced 0 for a plot-only survey; that is not a confirmed zero.
+  it('reads a legacy stored 0 with no measurement state as not measured', () => {
+    expect(deriveReportMeasurementsFromSurvey(row({ affectedAreaSqm: 0 }))).toMatchObject({
+      affectedAreaHectares: null,
+      affectedAreaMeasurement: 'not_measured',
+      affectedPortionPercent: null,
+    });
+  });
+
+  // AC-4(b): an explicit "no affected area found" is a measured 0 ha and 0%.
+  it('reads a confirmed zero as measured 0 ha and 0%', () => {
+    const confirmed = row({ affectedAreaMeasurement: 'measured', affectedAreaSqm: 0 });
+    expect(isConfirmedZeroSurvey(confirmed)).toBe(true);
+    expect(deriveReportMeasurementsFromSurvey(confirmed)).toMatchObject({
+      affectedAreaHectares: 0,
+      affectedAreaMeasurement: 'measured',
+      affectedPortionPercent: 0,
+      affectedPortionMeasurement: 'measured',
+    });
+  });
+
+  // Intent: drawn affected areas always win over a stale zero confirmation.
+  it('ignores a zero confirmation once an affected area is drawn', () => {
+    const measurements = deriveReportMeasurementsFromSurvey(withAffected({ affectedAreaMeasurement: 'measured', affectedAreaSqm: 0 }));
+    expect(measurements?.affectedAreaHectares).toBeGreaterThan(0.29);
+  });
+
+  // AC-4(c): a 40 m² patch is 0.004 ha, never rounded to 0.
+  it('keeps four decimals so a 40 m² patch stays 0.004 ha', () => {
+    expect(sqmToHectares(40)).toBe(0.004);
+    expect(sqmToHectares(18_336)).toBe(1.8336);
+    expect(sqmToHectares(0.2)).toBe(0.0001);
+    expect(sqmToHectares(0)).toBe(0);
+  });
+
+  // Intent: an unfinished or damaged map clears survey-derived figures instead of keeping old ones.
+  it('gives nothing for too few points, an open affected area or damaged storage', () => {
+    expect(deriveReportMeasurementsFromSurvey(row({ waypointsJson: JSON.stringify(plot.slice(0, 2)) }))).toBeNull();
+    expect(deriveReportMeasurementsFromSurvey(row({ activeAffectedWaypointsJson: JSON.stringify([point(14, 120)]) }))).toBeNull();
+    expect(deriveReportMeasurementsFromSurvey(row({ waypointsJson: 'not json' }))).toBeNull();
+    expect(deriveReportMeasurementsFromSurvey(row({ affectedAreaPolygonsJson: JSON.stringify([outsideShape]) }))).toBeNull();
+  });
+
+  it('exposes an all-unmeasured value for callers that must clear', () => {
+    expect(UNMEASURED_REPORT_MEASUREMENTS).toEqual({
+      plotAreaHectares: null,
+      plotAreaMeasurement: 'not_measured',
+      affectedAreaHectares: null,
+      affectedAreaMeasurement: 'not_measured',
+      affectedPortionPercent: null,
+      affectedPortionMeasurement: 'not_measured',
+    });
+  });
+});
+
+describe('measuredBoundaryArea', () => {
+  it('measures the plot and the affected union', () => {
+    const measured = measuredBoundaryArea(withAffected());
+    if (!measured) throw new Error('expected a measurement');
+    expect(measured.affectedAreaCount).toBe(1);
+    expect(measured.affectedAreaSqm).toBeCloseTo(measured.areaSqm / 4, -1);
+  });
+
+  it('leaves the affected area null for a plot-only boundary', () => {
+    expect(measuredBoundaryArea(row())).toMatchObject({ affectedAreaCount: 0, affectedAreaSqm: null });
   });
 
   // Intent: an unfinished map never fills the report.
@@ -199,13 +287,14 @@ describe('hasOpenAffectedArea', () => {
 describe('percentAffected', () => {
   // Intent: the phone and the office show the same share, to one decimal, and never invent one.
   it('rounds the affected share of the plot to one decimal', () => {
-    expect(percentAffected({ areaSqm: 10_000, affectedAreaSqm: 2_600, affectedAreaCount: 1 })).toBe(26);
-    expect(percentAffected({ areaSqm: 6_075.12, affectedAreaSqm: 412.5, affectedAreaCount: 2 })).toBe(6.8);
-    expect(percentAffected({ areaSqm: 100, affectedAreaSqm: 150, affectedAreaCount: 1 })).toBe(100);
+    expect(percentAffected({ areaSqm: 10_000, affectedAreaSqm: 2_600 })).toBe(26);
+    expect(percentAffected({ areaSqm: 6_075.12, affectedAreaSqm: 412.5 })).toBe(6.8);
+    expect(percentAffected({ areaSqm: 100, affectedAreaSqm: 150 })).toBe(100);
   });
 
-  it('gives nothing when no affected area was drawn or the plot has no area', () => {
-    expect(percentAffected({ areaSqm: 10_000, affectedAreaSqm: 0, affectedAreaCount: 0 })).toBeNull();
-    expect(percentAffected({ areaSqm: 0, affectedAreaSqm: 5, affectedAreaCount: 1 })).toBeNull();
+  it('gives nothing while the affected area is unmeasured or the plot has no area, and 0 for a confirmed zero', () => {
+    expect(percentAffected({ areaSqm: 10_000, affectedAreaSqm: null })).toBeNull();
+    expect(percentAffected({ areaSqm: 0, affectedAreaSqm: 5 })).toBeNull();
+    expect(percentAffected({ areaSqm: 10_000, affectedAreaSqm: 0 })).toBe(0);
   });
 });

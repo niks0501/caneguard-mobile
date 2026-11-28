@@ -113,6 +113,7 @@ function openTestDatabase(): {
     '0036_net3_report_provenance.sql',
     '0037_net3_survey_provenance.sql',
     '0039_field_map_label_outline.sql',
+    '0043_measured_zero_plot_area.sql',
   ]) {
     native.exec(readMigration(migration));
   }
@@ -1980,6 +1981,260 @@ describe('findScanRecordIdForCase', () => {
       native.close();
     });
 
+    // ---- Measurements the attached boundary decides ------------------------------------------------
+    const quarterWaypoints: SurveyWaypoint[] = [
+      { accuracyMeters: null, capturedAt: OBSERVED_AT, latitude: 14, longitude: 120, source: 'map' },
+      { accuracyMeters: null, capturedAt: OBSERVED_AT, latitude: 14, longitude: 120.0005, source: 'map' },
+      { accuracyMeters: null, capturedAt: OBSERVED_AT, latitude: 14.0005, longitude: 120.0005, source: 'map' },
+      { accuracyMeters: null, capturedAt: OBSERVED_AT, latitude: 14.0005, longitude: 120, source: 'map' },
+    ];
+    const quarterPolygon = {
+      type: 'Polygon' as const,
+      coordinates: [[[120, 14], [120.0005, 14], [120.0005, 14.0005], [120, 14.0005], [120, 14]]],
+    };
+    const halfWaypoints: SurveyWaypoint[] = [
+      { accuracyMeters: null, capturedAt: OBSERVED_AT, latitude: 14, longitude: 120, source: 'map' },
+      { accuracyMeters: null, capturedAt: OBSERVED_AT, latitude: 14, longitude: 120.001, source: 'map' },
+      { accuracyMeters: null, capturedAt: OBSERVED_AT, latitude: 14.0005, longitude: 120.001, source: 'map' },
+      { accuracyMeters: null, capturedAt: OBSERVED_AT, latitude: 14.0005, longitude: 120, source: 'map' },
+    ];
+    const halfPolygon = {
+      type: 'Polygon' as const,
+      coordinates: [[[120, 14], [120.001, 14], [120.001, 14.0005], [120, 14.0005], [120, 14]]],
+    };
+
+    async function saveBoundaryWith(
+      database: CaneGuardDatabase,
+      extra: { affected?: 'quarter' | 'half'; zeroConfirmed?: boolean; active?: SurveyWaypoint[] },
+    ) {
+      await saveFieldSurveyDraft(database, {
+        authorRole: 'field_reporter',
+        capturedAt: OBSERVED_AT,
+        clientUuid: SURVEY_UUID,
+        districtCode: 'D-01',
+        ownerIdentity: SUBMITTER_ID,
+        waypoints: surveyWaypoints,
+        ...(extra.affected === 'quarter' ? { affectedAreaPolygons: [quarterPolygon], affectedAreaWaypoints: [quarterWaypoints] } : {}),
+        ...(extra.affected === 'half' ? { affectedAreaPolygons: [halfPolygon], affectedAreaWaypoints: [halfWaypoints] } : {}),
+        ...(extra.zeroConfirmed ? { affectedZeroConfirmed: true } : {}),
+        ...(extra.active ? { activeAffectedWaypoints: extra.active } : {}),
+      });
+    }
+
+    // AC-1: a 1.20 ha plot with a 0.30 ha affected polygon persists as three separate figures, not the plot as affected.
+    it('finalizes plot, affected ground and share from the attached boundary', async () => {
+      const { database, native } = openTestDatabase();
+      await prepareFinalizableReport(database, native);
+      await saveBoundaryWith(database, { affected: 'quarter' });
+
+      // The form still holds an old typed number; the boundary decides.
+      const result = await finalizeFieldReport(
+        database,
+        REPORT_ID,
+        SUBMITTER_ID,
+        { ...finalizeValues(), affectedAreaHectares: 9.99, affectedAreaMeasurement: 'measured', affectedPortionPercent: 77, affectedPortionMeasurement: 'measured' },
+        IMAGE_EXISTS,
+      );
+
+      expect(result.status).toBe('finalized');
+      expect(result.report.plotAreaHectares).toBeCloseTo(1.2, 1);
+      expect(result.report.plotAreaMeasurement).toBe('measured');
+      expect(result.report.affectedAreaHectares).toBeCloseTo(0.3, 1);
+      expect(result.report.affectedAreaMeasurement).toBe('measured');
+      expect(result.report.affectedPortionPercent).toBe(25);
+      expect(native.prepare('SELECT plot_area_hectares, plot_area_measurement, affected_area_hectares, affected_portion_percent FROM field_reports WHERE id = ?').get(REPORT_ID)).toMatchObject({
+        plot_area_measurement: 'measured',
+        affected_portion_percent: 25,
+      });
+
+      native.close();
+    });
+
+    // AC-2: a plot-only boundary never becomes affected ground.
+    it('keeps a plot-only boundary as plot area with the affected figures not measured', async () => {
+      const { database, native } = openTestDatabase();
+      await prepareFinalizableReport(database, native);
+      await saveBoundaryWith(database, {});
+
+      const result = await finalizeFieldReport(
+        database,
+        REPORT_ID,
+        SUBMITTER_ID,
+        { ...finalizeValues(), affectedAreaHectares: 1.2, affectedAreaMeasurement: 'measured' },
+        IMAGE_EXISTS,
+      );
+
+      expect(result.status).toBe('finalized');
+      expect(result.report.plotAreaHectares).toBeCloseTo(1.2, 1);
+      expect(result.report).toMatchObject({
+        affectedAreaHectares: null,
+        affectedAreaMeasurement: 'not_measured',
+        affectedPortionPercent: null,
+        affectedPortionMeasurement: 'not_measured',
+      });
+      native.close();
+    });
+
+    // AC-4(b): an explicit confirmed zero passes the relaxed CHECK and finalizes as 0 ha / 0%.
+    it('finalizes a confirmed no-affected-area boundary as a measured zero', async () => {
+      const { database, native } = openTestDatabase();
+      await prepareFinalizableReport(database, native);
+      await saveBoundaryWith(database, { zeroConfirmed: true });
+
+      const result = await finalizeFieldReport(database, REPORT_ID, SUBMITTER_ID, finalizeValues(), IMAGE_EXISTS);
+
+      expect(result.status).toBe('finalized');
+      expect(result.report).toMatchObject({
+        affectedAreaHectares: 0,
+        affectedAreaMeasurement: 'measured',
+        affectedPortionPercent: 0,
+        affectedPortionMeasurement: 'measured',
+      });
+      expect(native.prepare('SELECT affected_area_hectares FROM field_reports WHERE id = ?').get(REPORT_ID)).toEqual({ affected_area_hectares: 0 });
+      // The queued boundary carries the same confirmed zero.
+      expect(findOwnedFieldSurvey(database, SURVEY_UUID, SUBMITTER_ID)).toMatchObject({ affectedAreaSqm: 0, affectedAreaMeasurement: 'measured', status: 'pending' });
+      native.close();
+    });
+
+    // Intent (7): a report finalized from the form while the boundary changed since it was saved
+    // carries what the boundary measures at finalize, in the same transaction.
+    it('reconciles from the boundary at finalize even when the form saved older numbers', async () => {
+      const { database, native } = openTestDatabase();
+      await prepareFinalizableReport(database, native);
+      await saveBoundaryWith(database, { affected: 'quarter' });
+      await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, {
+        affectedAreaHectares: 0.3, affectedAreaMeasurement: 'measured',
+        affectedPortionPercent: 25, affectedPortionMeasurement: 'measured',
+        updatedAt: '2026-08-10T01:10:00.000Z',
+      });
+      // Edited from My Boundaries afterwards.
+      await saveBoundaryWith(database, { affected: 'half' });
+
+      const result = await finalizeFieldReport(
+        database, REPORT_ID, SUBMITTER_ID,
+        { ...finalizeValues(), affectedAreaHectares: 0.3, affectedAreaMeasurement: 'measured', affectedPortionPercent: 25, affectedPortionMeasurement: 'measured' },
+        IMAGE_EXISTS,
+      );
+
+      expect(result.status).toBe('finalized');
+      expect(result.report.affectedAreaHectares).toBeCloseTo(0.6, 1);
+      expect(result.report.affectedPortionPercent).toBe(50);
+      native.close();
+    });
+
+    // Intent (3): a boundary edited into an unfinished shape clears the figures and blocks finalize.
+    it('clears the survey-derived figures and blocks finalize when the boundary is unfinished', async () => {
+      const { database, native } = openTestDatabase();
+      await prepareFinalizableReport(database, native);
+      await saveBoundaryWith(database, { affected: 'quarter', active: [quarterWaypoints[0]] });
+
+      const result = await finalizeFieldReport(
+        database, REPORT_ID, SUBMITTER_ID,
+        { ...finalizeValues(), affectedAreaHectares: 0.3, affectedAreaMeasurement: 'measured', affectedPortionPercent: 25, affectedPortionMeasurement: 'measured' },
+        IMAGE_EXISTS,
+      );
+
+      expect(result).toMatchObject({ status: 'invalid', missingRequirements: ['attached_boundary'] });
+      expect(result.report).toMatchObject({
+        authoringState: 'draft',
+        plotAreaHectares: null,
+        affectedAreaHectares: null,
+        affectedAreaMeasurement: 'not_measured',
+        affectedPortionPercent: null,
+      });
+      native.close();
+    });
+
+    // Intent (4) and (5): attaching fills the three figures; detaching removes what the boundary supplied.
+    it('fills the figures when a boundary is attached and clears them when it is detached', async () => {
+      const { database, native } = openTestDatabase();
+      await prepareFinalizableReport(database, native);
+      await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, { fieldSurveyClientUuid: null, updatedAt: '2026-08-10T01:06:00.000Z' });
+      await saveBoundaryWith(database, { affected: 'quarter' });
+
+      const attached = await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, {
+        fieldSurveyClientUuid: SURVEY_UUID,
+        updatedAt: '2026-08-10T01:07:00.000Z',
+      });
+      expect(attached.plotAreaHectares).toBeCloseTo(1.2, 1);
+      expect(attached.affectedAreaHectares).toBeCloseTo(0.3, 1);
+      expect(attached.affectedPortionPercent).toBe(25);
+
+      const detached = await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, {
+        fieldSurveyClientUuid: null,
+        updatedAt: '2026-08-10T01:08:00.000Z',
+      });
+      expect(detached).toMatchObject({
+        plotAreaHectares: null,
+        plotAreaMeasurement: 'not_measured',
+        affectedAreaHectares: null,
+        affectedAreaMeasurement: 'not_measured',
+        affectedPortionPercent: null,
+      });
+      native.close();
+    });
+
+    // Intent: numbers typed by hand with no boundary are untouched by detaching one that never measured anything.
+    it('keeps typed numbers when a boundary that measured nothing is detached', async () => {
+      const { database, native } = openTestDatabase();
+      await prepareFinalizableReport(database, native);
+      await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, {
+        affectedAreaHectares: 0.8, affectedAreaMeasurement: 'measured',
+        affectedPortionPercent: 40, affectedPortionMeasurement: 'measured',
+        fieldSurveyClientUuid: SURVEY_UUID,
+        updatedAt: '2026-08-10T01:06:00.000Z',
+      });
+
+      const detached = await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, {
+        fieldSurveyClientUuid: null,
+        updatedAt: '2026-08-10T01:08:00.000Z',
+      });
+      expect(detached).toMatchObject({ affectedAreaHectares: 0.8, affectedPortionPercent: 40 });
+      native.close();
+    });
+
+    // Without a boundary, typed values keep working, including an explicit 0 (D2-A).
+    it('finalizes typed values without a boundary, including a typed zero', async () => {
+      const { database, native } = openTestDatabase();
+      await prepareFinalizableReport(database, native);
+      await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, { fieldSurveyClientUuid: null, updatedAt: '2026-08-10T01:06:00.000Z' });
+
+      const result = await finalizeFieldReport(
+        database, REPORT_ID, SUBMITTER_ID,
+        { ...finalizeValues(), affectedAreaHectares: 0, affectedAreaMeasurement: 'measured', affectedPortionPercent: 0, affectedPortionMeasurement: 'measured', fieldSurveyClientUuid: null },
+        IMAGE_EXISTS,
+      );
+      expect(result.status).toBe('finalized');
+      expect(result.report).toMatchObject({ affectedAreaHectares: 0, affectedAreaMeasurement: 'measured', affectedPortionPercent: 0, plotAreaHectares: null, plotAreaMeasurement: 'not_measured' });
+      native.close();
+    });
+
+    // AC-4(c): a 40 m² patch is stored as 0.004 ha, not 0.
+    it('stores a 40 m² affected patch as 0.004 ha', async () => {
+      const { database, native } = openTestDatabase();
+      await prepareFinalizableReport(database, native);
+      await saveFieldReportDraft(database, REPORT_ID, SUBMITTER_ID, { fieldSurveyClientUuid: null, updatedAt: '2026-08-10T01:06:00.000Z' });
+      const result = await finalizeFieldReport(
+        database, REPORT_ID, SUBMITTER_ID,
+        { ...finalizeValues(), affectedAreaHectares: 0.004, affectedAreaMeasurement: 'measured', affectedPortionPercent: 0.3, affectedPortionMeasurement: 'measured', fieldSurveyClientUuid: null },
+        IMAGE_EXISTS,
+      );
+      expect(result.report.affectedAreaHectares).toBe(0.004);
+      native.close();
+    });
+
+    // The SQLite CHECK itself: 0 is allowed, a negative area is still refused.
+    it('lets the database store a measured zero and refuses a negative affected area', async () => {
+      const { database, native } = openTestDatabase();
+      await createOrGetFieldReportDraft(database, createDraftInput());
+      const update = native.prepare('UPDATE field_reports SET affected_area_hectares = ?, affected_area_measurement = ? WHERE id = ?');
+      expect(() => update.run(0, 'measured', REPORT_ID)).not.toThrow();
+      expect(() => update.run(-0.1, 'measured', REPORT_ID)).toThrow(/CHECK constraint failed/);
+      expect(() => native.prepare('UPDATE field_reports SET plot_area_hectares = 0, plot_area_measurement = ? WHERE id = ?').run('measured', REPORT_ID)).toThrow(/CHECK constraint failed/);
+      expect(() => native.prepare('UPDATE field_reports SET plot_area_hectares = NULL, plot_area_measurement = ? WHERE id = ?').run('measured', REPORT_ID)).toThrow(/CHECK constraint failed/);
+      native.close();
+    });
+
     // Intent (item 8): the district comes from the account, so a boundary saved before the
     // account had one still travels with the report, queued under the account's district.
     it('queues an attached boundary with the account district instead of the stored one', async () => {
@@ -2024,9 +2279,12 @@ describe('findScanRecordIdForCase', () => {
         authoringState: 'draft',
         fieldSurveyClientUuid: SURVEY_UUID,
       });
+      // Still a draft that was never queued; its measurement columns simply track the saved geometry.
       expect(findOwnedFieldSurvey(database, SURVEY_UUID, SUBMITTER_ID)).toMatchObject({
         status: 'draft',
-        areaSqm: null,
+        remoteId: null,
+        affectedAreaSqm: null,
+        affectedAreaMeasurement: 'not_measured',
       });
       native.close();
     });

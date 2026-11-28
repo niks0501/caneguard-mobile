@@ -31,6 +31,7 @@ function openDatabase(): { database: CaneGuardDatabase; native: DatabaseSync } {
     '0024_active_affected_waypoints.sql', '0025_field_survey_author_role.sql',
     '0028_field_report_survey_link.sql', '0029_scan_personal_place.sql', '0034_authority_workflow_status.sql',
     '0036_net3_report_provenance.sql', '0037_net3_survey_provenance.sql', '0039_field_map_label_outline.sql',
+    '0043_measured_zero_plot_area.sql',
   ]) {
     native.exec(readFileSync(join(process.cwd(), 'drizzle', migration), 'utf8').replaceAll('--> statement-breakpoint', ''));
   }

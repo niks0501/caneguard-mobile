@@ -1,3 +1,4 @@
+import { fieldReportMeasurementMigration } from '../../../../../test/fieldSurveyMeasurementMigration';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
@@ -82,6 +83,7 @@ function openTestDatabase(): { database: CaneGuardDatabase; native: DatabaseSync
   ]) {
     native.exec(readMigration(migration));
   }
+  native.exec(fieldReportMeasurementMigration());
 
   insertScan(native, CURRENT_SCAN_ID, CURRENT_OBSERVED_AT, IMAGE_URI);
   insertScan(

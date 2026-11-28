@@ -31,10 +31,12 @@ interface CanonicalField extends CanonicalScalarRules {
   formats?: { mime_types: string[] }[];
   max_bytes?: number;
   conditions?: CanonicalCondition[];
+  nullable?: boolean;
 }
 
 interface CanonicalCondition {
   rule: string;
+  value_field?: string;
   fields?: string[];
   field?: string;
   value?: string;
@@ -111,6 +113,8 @@ const REPORT: FieldReport = {
   province: 'Batangas',
   municipality: 'Nasugbu',
   barangay: 'Wawa',
+  plotAreaHectares: null,
+  plotAreaMeasurement: 'not_measured',
   affectedAreaHectares: null,
   affectedAreaMeasurement: 'not_measured',
   affectedPortionPercent: null,
@@ -299,7 +303,10 @@ describe('mobile-report-upload-v3 producer contract', () => {
     ['latitude outside canonical range', { report: { finalLatitude: 90.01 } }],
     ['longitude outside canonical range', { report: { finalLongitude: -180.01 } }],
     ['negative GPS accuracy', { report: { gpsAccuracy: -0.01 } }],
-    ['zero affected area', { report: { affectedAreaHectares: 0 } }],
+    ['negative affected area', { report: { affectedAreaHectares: -0.0001 } }],
+    ['zero plot area', { report: { plotAreaHectares: 0 } }],
+    ['negative plot area', { report: { plotAreaHectares: -1 } }],
+    ['plot area above the canonical maximum', { report: { plotAreaHectares: 100_000_000 } }],
     ['affected portion above one hundred', { report: { affectedPortionPercent: 100.01 } }],
     ['checklist text above canonical maximum', { scan: { checklistConsistency: 'x'.repeat(41) } }],
     ['farmer name above canonical maximum', { report: { farmerOrFarmOwnerName: 'x'.repeat(161) } }],
@@ -331,6 +338,66 @@ describe('mobile-report-upload-v3 producer contract', () => {
     expect(() => map(report)).toThrow(
       expect.objectContaining({ code: 'INVALID_LOCAL_RECORD' }),
     );
+  });
+
+  // AC-1: a 1.20 ha plot with a 0.30 ha affected polygon keeps three separate figures on the wire.
+  it('maps plot area, affected ground and affected share to separate v3 fields', () => {
+    const form = map({
+      plotAreaHectares: 1.2,
+      affectedAreaHectares: 0.3,
+      affectedPortionPercent: 25,
+    });
+    expectCanonicalV3(form);
+    const multipart = parts(form);
+    expect(scalarValue(multipart, 'plot_area_hectares')).toBe('1.2');
+    expect(scalarValue(multipart, 'plot_area_measurement')).toBe('measured');
+    expect(scalarValue(multipart, 'affected_area_hectares')).toBe('0.3');
+    expect(scalarValue(multipart, 'affected_area_measurement')).toBe('measured');
+    expect(scalarValue(multipart, 'affected_portion_percent')).toBe('25');
+    expect(scalarValue(multipart, 'affected_portion_measurement')).toBe('measured');
+  });
+
+  // AC-2: a plot-only survey sends the plot and leaves the affected figures not measured.
+  it('sends a plot-only measurement without any affected area', () => {
+    const form = map({ plotAreaHectares: 1.2 });
+    expectCanonicalV3(form);
+    const multipart = parts(form);
+    expect(scalarValue(multipart, 'plot_area_hectares')).toBe('1.2');
+    expect(scalarValue(multipart, 'affected_area_hectares')).toBeUndefined();
+    expect(scalarValue(multipart, 'affected_area_measurement')).toBe('not_measured');
+    expect(scalarValue(multipart, 'affected_portion_percent')).toBeUndefined();
+    expect(scalarValue(multipart, 'affected_portion_measurement')).toBe('not_measured');
+  });
+
+  // AC-4(b): a confirmed zero is measured 0 ha and 0%, accepted by the widened minimum of 0.
+  it('accepts a confirmed zero affected area and portion', () => {
+    const form = map({ plotAreaHectares: 1.2, affectedAreaHectares: 0, affectedPortionPercent: 0 });
+    expectCanonicalV3(form);
+    const multipart = parts(form);
+    expect(scalarValue(multipart, 'affected_area_hectares')).toBe('0');
+    expect(scalarValue(multipart, 'affected_area_measurement')).toBe('measured');
+    expect(scalarValue(multipart, 'affected_portion_percent')).toBe('0');
+    expect(scalarValue(multipart, 'affected_portion_measurement')).toBe('measured');
+    expect(CANONICAL.fields.affected_area_hectares.minimum).toBe(0);
+  });
+
+  // AC-4(c): a 40 m² patch keeps four decimals instead of rounding to 0.
+  it('keeps a 40 m² patch at 0.004 ha', () => {
+    const form = map({ plotAreaHectares: 1.2, affectedAreaHectares: 0.004, affectedPortionPercent: 0.3 });
+    expectCanonicalV3(form);
+    expect(scalarValue(parts(form), 'affected_area_hectares')).toBe('0.004');
+  });
+
+  // Intent: a report finalized before plot area existed still maps and states the plot as not measured.
+  it('states an absent plot area as not measured', () => {
+    const { plotAreaHectares: _plot, plotAreaMeasurement: _measurement, ...older } = REPORT;
+    const form = mapFieldReportToMultipart(
+      { report: older as FieldReport, scanRecord: SCAN },
+      { createImageFile: () => ({ type: 'image/jpeg', size: 4096 }) as unknown as Blob, imageExists: () => true },
+    );
+    expectCanonicalV3(form);
+    expect(scalarValue(parts(form), 'plot_area_measurement')).toBe('not_measured');
+    expect(scalarValue(parts(form), 'plot_area_hectares')).toBeUndefined();
   });
 
   it('accepts mobile values at every relevant canonical boundary', () => {
@@ -428,6 +495,7 @@ function map(
   // D-01 keeps value and provenance coherent, so an override that only changes a
   // number also states that it was measured.
   for (const [valueField, measurementField] of [
+    ['plotAreaHectares', 'plotAreaMeasurement'],
     ['affectedAreaHectares', 'affectedAreaMeasurement'],
     ['affectedPortionPercent', 'affectedPortionMeasurement'],
   ] as const) {
@@ -624,6 +692,13 @@ function validateConditions(formParts: MultipartPart[]): void {
         if (scalarValue(formParts, condition.field ?? '') === condition.value) {
           expect(hasEffectiveValue(formParts, fieldName)).toBe(true);
         }
+      }
+      if (condition.rule === 'measurement_pairing') {
+        // `measured` carries a number (0 is a number); `not_measured` carries none.
+        const measurement = scalarValue(formParts, fieldName);
+        const hasValue = hasEffectiveValue(formParts, condition.value_field ?? '');
+        if (measurement === 'measured') expect(hasValue).toBe(true);
+        if (measurement === 'not_measured') expect(hasValue).toBe(false);
       }
       if (condition.rule === 'prohibited_unless') {
         if (scalarValue(formParts, condition.field ?? '') !== condition.value) {

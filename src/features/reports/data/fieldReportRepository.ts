@@ -5,6 +5,7 @@ import { StorageError, toStorageError } from '@/database/errors';
 import { requireOwnerIdentity } from '@/database/ownerIdentity';
 import {
   fieldReports,
+  fieldSurveys,
   scanClassScores,
   scanRecords,
   LOCATION_UNAVAILABLE_REASONS,
@@ -32,6 +33,11 @@ import type {
   SaveManualMapLocationInput,
 } from '@/features/reports/domain/fieldReportTypes';
 import { queueAttachedFieldSurvey } from '@/features/surveys/data/fieldSurveyRepository';
+import {
+  deriveReportMeasurementsFromSurvey,
+  UNMEASURED_REPORT_MEASUREMENTS,
+  type ReportMeasurements,
+} from '@/features/surveys/domain/attachedBoundary';
 import { emitSyncRecordsChanged } from '@/features/sync/services/syncEvents';
 import { toAuthorityReviewSnapshot } from '@/features/reports/domain/reportReviewTypes';
 import {
@@ -542,6 +548,35 @@ function isValidUtcTimestampValue(value: string): boolean {
     && !Number.isNaN(Date.parse(value));
 }
 
+/**
+ * What the linked boundary measures right now, read inside the caller's transaction so a report never
+ * keeps the figures of an earlier shape. Null when no boundary is linked, or when the linked one is
+ * missing, unfinished or damaged and so measures nothing.
+ */
+function readSurveyMeasurements(
+  transaction: Pick<CaneGuardDatabase, 'select'>,
+  owner: string,
+  linkedSurveyUuid: string | null | undefined,
+): ReportMeasurements | null {
+  if (!linkedSurveyUuid) return null;
+  const survey = transaction
+    .select()
+    .from(fieldSurveys)
+    .where(and(eq(fieldSurveys.clientUuid, linkedSurveyUuid), eq(fieldSurveys.ownerIdentity, owner)))
+    .get();
+  return survey ? deriveReportMeasurementsFromSurvey(survey) : null;
+}
+
+/** With a boundary linked its measurements decide, and an unusable one clears them; without one, typed values stand (null). */
+function surveyDecidedMeasurements(
+  transaction: Pick<CaneGuardDatabase, 'select'>,
+  owner: string,
+  linkedSurveyUuid: string | null | undefined,
+): ReportMeasurements | null {
+  if (!linkedSurveyUuid) return null;
+  return readSurveyMeasurements(transaction, owner, linkedSurveyUuid) ?? UNMEASURED_REPORT_MEASUREMENTS;
+}
+
 export interface FinalizeFieldReportDependencies {
   imageExists?: (uri: string) => boolean;
   persistSubmissionImage?: typeof persistSubmissionImageMetadata;
@@ -581,13 +616,23 @@ export async function finalizeFieldReport(
         throw new StorageError('UPDATE_FAILED', 'Only a Draft Field Report can be finalized.');
       }
 
+      // An attached boundary decides the three measurements; typed values only stand without one.
+      const linkedSurveyUuid = values.fieldSurveyClientUuid === undefined
+        ? existing.fieldSurveyClientUuid
+        : values.fieldSurveyClientUuid;
+      const fromSurvey = surveyDecidedMeasurements(transaction, owner, linkedSurveyUuid);
+
       transaction
         .update(fieldReports)
         .set({
-          affectedAreaHectares: values.affectedAreaHectares,
-          affectedAreaMeasurement: values.affectedAreaMeasurement,
-          affectedPortionPercent: values.affectedPortionPercent,
-          affectedPortionMeasurement: values.affectedPortionMeasurement,
+          ...(fromSurvey ?? {
+            plotAreaHectares: values.plotAreaHectares,
+            plotAreaMeasurement: values.plotAreaMeasurement,
+            affectedAreaHectares: values.affectedAreaHectares,
+            affectedAreaMeasurement: values.affectedAreaMeasurement,
+            affectedPortionPercent: values.affectedPortionPercent,
+            affectedPortionMeasurement: values.affectedPortionMeasurement,
+          }),
           barangay: values.barangay,
           caneClass: values.caneClass,
           cropAge: values.cropAge,
@@ -781,7 +826,10 @@ export async function finalizeFieldReport(
         );
       }
 
-      const report = toFieldReport(existing);
+      // Reconcile once more from the boundary in this same transaction, so the finalized report carries
+      // exactly what the boundary measures at this moment (it may have been edited since the form was saved).
+      const reconciled = surveyDecidedMeasurements(transaction, owner, existing.fieldSurveyClientUuid);
+      const report = toFieldReport({ ...existing, ...(reconciled ?? {}) });
       const missingRequirements = getMissingSubmissionRequirements(
         report,
         toSubmissionEvidence(
@@ -799,6 +847,7 @@ export async function finalizeFieldReport(
       transaction
         .update(fieldReports)
         .set({
+          ...(reconciled ?? {}),
           authoringState: 'finalized',
           authorizationBasis: input.provenance?.basis ?? null,
           capabilitiesVerifiedAt: input.provenance?.verifiedAt ?? null,
@@ -1087,6 +1136,7 @@ export async function saveFieldReportDraft(
       const existing = transaction
         .select({
           authoringState: fieldReports.authoringState,
+          fieldSurveyClientUuid: fieldReports.fieldSurveyClientUuid,
           scanRecordId: fieldReports.scanRecordId,
         })
         .from(fieldReports)
@@ -1123,9 +1173,26 @@ export async function saveFieldReportDraft(
         );
       }
 
+      // Attaching a boundary fills the three measurements from it; detaching clears what it supplied.
+      // An explicit measurement in the same save (the form's own values) is authoritative.
+      const measurementsGiven =
+        input.plotAreaHectares !== undefined ||
+        input.affectedAreaHectares !== undefined ||
+        input.affectedPortionPercent !== undefined;
+      let fromSurvey: ReportMeasurements | null = null;
+      if (values.fieldSurveyClientUuid !== undefined && !measurementsGiven) {
+        // A boundary that cannot be measured (a new map, an unfinished one) supplied nothing, so typed
+        // values stay; detaching one that did supply figures takes them away again.
+        fromSurvey = values.fieldSurveyClientUuid === null
+          ? (readSurveyMeasurements(transaction, owner, existing.fieldSurveyClientUuid)
+              ? UNMEASURED_REPORT_MEASUREMENTS
+              : null)
+          : readSurveyMeasurements(transaction, owner, values.fieldSurveyClientUuid);
+      }
+
       transaction
         .update(fieldReports)
-        .set(values)
+        .set({ ...values, ...(fromSurvey ?? {}) })
         .where(
           and(
             eq(fieldReports.id, id),
@@ -1238,6 +1305,9 @@ function toFieldReport(row: typeof fieldReports.$inferSelect): FieldReport {
     sugarcaneVariety: row.sugarcaneVariety,
     cropAge: row.cropAge,
     caneClass: row.caneClass,
+    plotAreaHectares: row.plotAreaHectares,
+    plotAreaMeasurement:
+      row.plotAreaMeasurement ?? resolveMeasurementProvenance(row.plotAreaHectares),
     affectedAreaHectares: row.affectedAreaHectares,
     affectedAreaMeasurement:
       row.affectedAreaMeasurement ??

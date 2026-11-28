@@ -44,6 +44,16 @@ import { useManualMapGestures } from '@/features/reports/components/use-manual-m
 import { useTileSources } from '@/features/reports/tiles/useTileSources';
 import { isConfirmedZeroSurvey } from '@/features/surveys/domain/attachedBoundary';
 import { describeOutsidePlot, measureAffectedAreas, snapAffectedAreaWaypoints, validateAffectedAreaWaypoints, validateSurveyPolygon, validateSurveyWaypoints, type SurveyPolygon, type SurveyWaypoint } from '@/features/surveys/domain/fieldSurvey';
+import { SubdivisionSvgLayer, SubdivisionTouchLayer } from '@/features/surveys/components/SubdivisionOverlay';
+import {
+  applySubdivisionSelection,
+  applyWholePlotAffected,
+  insertBendPointOnCut,
+  isWholePlotAffected,
+  measureSubdivisionSelection,
+  pointInPiece,
+  subdividePlot,
+} from '@/features/surveys/domain/plotSubdivision';
 import { LOADING_SCREEN, NEW_BOUNDARY_SCREEN, screenCanEdit, screenCanSubmit, screenIsStoredOrMissing, screenNeedsFreshIdentity, screenStateForRow, statusStripFor, WAITING_TO_SEND_SCREEN, type ScreenState } from '@/features/surveys/domain/screenMode';
 import { FIELD_SURVEY_SYNC_COPY, SYNC_TONE_COLOR } from '@/features/sync/utils/syncStatusCopy';
 import { assessBoundaryQuality } from '@/features/surveys/domain/boundaryQuality';
@@ -290,6 +300,14 @@ export default function FieldSurveyScreen() {
   const [drawingAffectedArea, setDrawingAffectedArea] = useState(false);
   // The inspector checked the plot and found nothing affected. Only ever set by their explicit choice, never from empty polygons.
   const [affectedZeroConfirmed, setAffectedZeroConfirmed] = useState(false);
+  // Ephemeral plot-subdivision state (cut lines & selected candidate pieces live here until Apply commits them).
+  const [subdividing, setSubdividing] = useState(false);
+  const [cutLines, setCutLines] = useState<MapCoordinate[][]>([]);
+  const cutLinesRef = useRef<MapCoordinate[][]>([]);
+  const [activeCut, setActiveCut] = useState<MapCoordinate[]>([]);
+  const [selectedPieceIds, setSelectedPieceIds] = useState<string[]>([]);
+  const [addingCut, setAddingCut] = useState(false);
+  const cutDragRef = useRef<{ cutIndex: number; pointIndex: number; grabbed: MapCoordinate } | null>(null);
   const [selected, setSelected] = useState<PointRef | null>(null);
   const [selectedArea, setSelectedArea] = useState<number | null>(null);
   const [myLocation, setMyLocation] = useState<MapCoordinate | null>(null);
@@ -366,13 +384,28 @@ export default function FieldSurveyScreen() {
     liveFormRef.current = { controlsLocked, drawingAffectedArea, editable: !controlsLocked };
   }, [controlsLocked, drawingAffectedArea]);
 
+  const setCutLinesSync = useCallback((next: MapCoordinate[][]) => {
+    cutLinesRef.current = next;
+    setCutLines(next);
+  }, []);
+  const exitSubdivision = useCallback(() => {
+    cutDragRef.current = null;
+    cutLinesRef.current = [];
+    setSubdividing(false);
+    setCutLines([]);
+    setActiveCut([]);
+    setSelectedPieceIds([]);
+    setAddingCut(false);
+  }, []);
+
   // The one place a stored row becomes the mode and the correction messages on screen.
   const showStoredRow = useCallback((row: StoredSurveyRow | null, next: ScreenState): ScreenState => {
     setScreenState(next);
+    if (!screenCanEdit(next.mode)) exitSubdivision();
     setStoredRemoteId(row?.remoteId ?? null);
     setFieldErrors(row ? parseFieldErrors(row.fieldErrorsJson) : {});
     return next;
-  }, []);
+  }, [exitSubdivision]);
 
   // A background attempt writes this screen's row too; its transitions belong on screen without reopening.
   useEffect(() => {
@@ -472,6 +505,24 @@ export default function FieldSurveyScreen() {
   }, [resumeOffer]);
   const validation = useMemo(() => validateSurveyWaypoints(waypoints), [waypoints]);
   const validityMarks = useMemo(() => assessValidity(waypoints, affectedAreas), [waypoints, affectedAreas]);
+  const subdivisionResult = useMemo(() => {
+    if (!subdividing || !validation.valid || cutLines.length === 0) return null;
+    return subdividePlot(waypoints, cutLines);
+  }, [cutLines, subdividing, validation.valid, waypoints]);
+  const subdivisionPieces = useMemo(
+    () => (subdivisionResult?.ok ? subdivisionResult.pieces : []),
+    [subdivisionResult],
+  );
+  const selectedSubdivisionPieces = useMemo(
+    () => subdivisionPieces.filter((piece) => selectedPieceIds.includes(piece.id)),
+    [selectedPieceIds, subdivisionPieces],
+  );
+  const subdivisionSelectionSummary = useMemo(() => {
+    if (!subdividing || !validation.valid || selectedSubdivisionPieces.length === 0) return null;
+    return measureSubdivisionSelection(validation.polygon, validation.areaSqm, selectedSubdivisionPieces, affectedAreas);
+  }, [affectedAreas, selectedSubdivisionPieces, subdividing, validation]);
+  const wholePlotSelected = useMemo(() => isWholePlotAffected(shape), [shape]);
+  const placingCut = subdividing && (addingCut || activeCut.length > 0 || subdivisionPieces.length < 2);
   // Drawing an affected area supersedes a "none found" confirmation, so it can never survive alongside one.
   const zeroConfirmedNow = affectedZeroConfirmed && affectedAreas.length === 0 && affectedWaypoints.length === 0;
   const affectedMeasurement = useMemo(() => validation.valid
@@ -666,9 +717,199 @@ export default function FieldSurveyScreen() {
     return best?.ref ?? null;
   }
 
+  function updateSubdivisionFeedback(lines: MapCoordinate[][]) {
+    if (lines.length === 0) {
+      setMapFeedback({ tone: 'info', text: FIELD_SURVEY_COPY.divideStarted });
+      return;
+    }
+    const result = subdividePlot(shapeRef.current.waypoints, lines);
+    if (result.ok) {
+      setMapFeedback({ tone: 'info', text: FIELD_SURVEY_COPY.dividePiecesReady(result.pieces.length) });
+    } else {
+      setMapFeedback({
+        tone: result.code === 'SELF_INTERSECTING_CUT' ? 'danger' : 'warning',
+        text: result.message,
+      });
+    }
+  }
+
+  function addCutPoint(coordinate: MapCoordinate) {
+    if (controlsLocked || walking || !subdividing) return;
+    if (activeCut.length === 0) {
+      setActiveCut([coordinate]);
+      setMapFeedback({ tone: 'info', text: FIELD_SURVEY_COPY.divideSecondPoint });
+      return;
+    }
+    const completedCut = [...activeCut, coordinate];
+    const nextCuts = addingCut ? [...cutLinesRef.current, completedCut] : [completedCut];
+    setCutLinesSync(nextCuts);
+    setActiveCut([]);
+    setAddingCut(false);
+    setSelectedPieceIds([]);
+    updateSubdivisionFeedback(nextCuts);
+  }
+
+  function toggleSubdivisionPiece(pieceId: string) {
+    if (controlsLocked || walking || !subdividing) return;
+    setSelectedPieceIds((current) =>
+      current.includes(pieceId) ? current.filter((id) => id !== pieceId) : [...current, pieceId]);
+  }
+
+  function insertCutBend(cutIndex: number, segmentIndex: number) {
+    if (controlsLocked || walking || !subdividing) return;
+    const current = cutLinesRef.current;
+    const line = current[cutIndex];
+    if (!line) return;
+    const bent = insertBendPointOnCut(line, segmentIndex);
+    if (bent === line) return;
+    const next = current.map((entry, index) => (index === cutIndex ? bent : entry));
+    setCutLinesSync(next);
+    setAddingCut(false);
+    setActiveCut([]);
+    updateSubdivisionFeedback(next);
+  }
+
+  function beginCutDrag(cutIndex: number, pointIndex: number) {
+    if (controlsLocked || walking || !subdividing) return;
+    const point = cutLinesRef.current[cutIndex]?.[pointIndex];
+    if (!point) return;
+    cutDragRef.current = { cutIndex, pointIndex, grabbed: point };
+  }
+
+  function dragCutTo(translationX: number, translationY: number) {
+    const drag = cutDragRef.current;
+    if (!drag) return;
+    const anchor = coordinateToViewportPoint(center, drag.grabbed, zoom, viewport.width, viewport.height);
+    const coordinate = coordinateAtViewportPoint(center, zoom, viewport.width, viewport.height, anchor.x + translationX, anchor.y + translationY);
+    const next = cutLinesRef.current.map((line, cutIndex) =>
+      cutIndex === drag.cutIndex
+        ? line.map((point, pointIndex) => (pointIndex === drag.pointIndex ? coordinate : point))
+        : line);
+    setCutLinesSync(next);
+  }
+
+  function endCutDrag() {
+    const drag = cutDragRef.current;
+    cutDragRef.current = null;
+    if (!drag) return;
+    updateSubdivisionFeedback(cutLinesRef.current);
+  }
+
+  function startSubdivision() {
+    if (controlsLocked || walking) return;
+    if (!validation.valid) {
+      setDrawingAffectedArea(true);
+      setMapFeedback({ tone: 'warning', text: FIELD_SURVEY_COPY.plotRequiredForAffected });
+      return;
+    }
+    if (shapeRef.current.affectedWaypoints.length > 0) {
+      setMapFeedback({ tone: 'warning', text: FIELD_SURVEY_COPY.divideCloseOpenFirst });
+      return;
+    }
+    stopWalk(null);
+    setDrawingAffectedArea(true);
+    setSelected(null);
+    setSelectedArea(null);
+    setSyncMessage(null);
+    setWalkNotice(null);
+    cutDragRef.current = null;
+    setCutLinesSync([]);
+    setActiveCut([]);
+    setSelectedPieceIds([]);
+    setAddingCut(false);
+    setSubdividing(true);
+    setMapFeedback({ tone: 'info', text: FIELD_SURVEY_COPY.divideStarted });
+  }
+
+  function cancelSubdivision() {
+    exitSubdivision();
+    setMapFeedback(null);
+  }
+
+  function startAdditionalCut() {
+    if (controlsLocked || walking || !subdividing) return;
+    setAddingCut(true);
+    setActiveCut([]);
+    setMapFeedback({ tone: 'info', text: FIELD_SURVEY_COPY.divideAddCutPrompt });
+  }
+
+  function clearCutLines() {
+    if (controlsLocked || walking || !subdividing) return;
+    cutDragRef.current = null;
+    setCutLinesSync([]);
+    setActiveCut([]);
+    setSelectedPieceIds([]);
+    setAddingCut(false);
+    setMapFeedback({ tone: 'info', text: FIELD_SURVEY_COPY.divideStarted });
+  }
+
+  function applySubdivision() {
+    if (controlsLocked || walking || !subdividing) return;
+    const result = applySubdivisionSelection(shapeRef.current, selectedSubdivisionPieces);
+    if (!result.ok) {
+      setSyncMessage(result.message);
+      setMapFeedback({ tone: 'danger', text: result.message });
+      return;
+    }
+    exitSubdivision();
+    setSelected(null);
+    setSelectedArea(null);
+    setSyncMessage(null);
+    setWalkNotice(null);
+    setResumeOffer(null);
+    if (result.addedCount > 0) {
+      commitShape(result.shape);
+      setMapFeedback({ tone: 'success', text: FIELD_SURVEY_COPY.divideApplied(result.addedCount) });
+    } else {
+      setMapFeedback({ tone: 'info', text: FIELD_SURVEY_COPY.divideAlreadyApplied });
+    }
+  }
+
+  function markWholePlotAffected() {
+    if (controlsLocked || walking) return;
+    if (!validation.valid) {
+      setDrawingAffectedArea(true);
+      setMapFeedback({ tone: 'warning', text: FIELD_SURVEY_COPY.plotRequiredForAffected });
+      return;
+    }
+    stopWalk(null);
+    exitSubdivision();
+    setDrawingAffectedArea(true);
+    setSelected(null);
+    setSelectedArea(null);
+    setSyncMessage(null);
+    setWalkNotice(null);
+    setResumeOffer(null);
+    const result = applyWholePlotAffected(shapeRef.current);
+    if (!result.ok) {
+      setSyncMessage(result.message);
+      setMapFeedback({ tone: 'danger', text: result.message });
+      return;
+    }
+    if (result.alreadyWhole) {
+      setMapFeedback({ tone: 'info', text: FIELD_SURVEY_COPY.wholePlotAlreadyMarked });
+      return;
+    }
+    commitShape(result.shape);
+    setMapFeedback({
+      tone: 'success',
+      text: result.replacedExisting ? FIELD_SURVEY_COPY.wholePlotReplaced : FIELD_SURVEY_COPY.wholePlotMarked,
+    });
+  }
+
   function addMapPointAt(point: { x: number; y: number }) {
     // walkRef is read live: a tap measured just before Walk started finishes after this render's `walking` is stale.
     if (controlsLocked || walking || walkRef.current) return;
+    if (subdividing) {
+      const coordinate = coordinateAtViewportPoint(center, zoom, viewport.width, viewport.height, point.x, point.y);
+      if (!placingCut) {
+        const hit = subdivisionPieces.find((piece) => pointInPiece(coordinate, piece));
+        if (hit) toggleSubdivisionPiece(hit.id);
+        return;
+      }
+      addCutPoint(coordinate);
+      return;
+    }
     const near = pointRefNear(point);
     if (near) {
       setSelected(sameRef(near, selected) ? null : near);
@@ -694,6 +935,10 @@ export default function FieldSurveyScreen() {
   // Places a point exactly under the cross at the map centre: precise, and the finger never hides the spot.
   function addPointAtCenter() {
     if (controlsLocked || walking) return;
+    if (subdividing) {
+      if (placingCut) addCutPoint(center);
+      return;
+    }
     if (selected) {
       const result = movePoint(shapeRef.current, selected, center);
       if (result.ok) {
@@ -817,7 +1062,7 @@ export default function FieldSurveyScreen() {
   }
 
   async function captureGpsWaypoint() {
-    if (controlsLocked) return;
+    if (controlsLocked || subdividing) return;
     const target = captureTargetForNewPoint();
     setGpsBusy(true);
     try {
@@ -1048,7 +1293,7 @@ export default function FieldSurveyScreen() {
       endWalkOnPurpose(false);
       return;
     }
-    if (controlsLocked || gpsBusy) return;
+    if (controlsLocked || gpsBusy || subdividing) return;
     setResumeOffer(null);
     const affectedArea = drawingAffectedArea;
     const session: WalkSession = {
@@ -1151,7 +1396,7 @@ export default function FieldSurveyScreen() {
       setFieldErrors({ district_code: [FIELD_SURVEY_COPY.districtMissing] });
       return;
     }
-    if (affectedWaypoints.length > 0) {
+    if (subdividing || affectedWaypoints.length > 0) {
       setSyncMessage(FIELD_SURVEY_COPY.unfinishedAffectedArea);
       return;
     }
@@ -1263,6 +1508,7 @@ export default function FieldSurveyScreen() {
   // Starts a NEW map from an earlier plot edge: the outline is copied, the damage never is.
   function applyOutline(source: { name: string | null; remoteId: string | null; waypoints: SurveyWaypoint[] }) {
     stopWalk();
+    exitSubdivision();
     const next: DrawingShape = { ...EMPTY_SHAPE, waypoints: source.waypoints };
     commitShape(next);
     setOutlineFromRemoteId(source.remoteId);
@@ -1323,6 +1569,7 @@ export default function FieldSurveyScreen() {
   }, [earlierOutlines, measuredBeforeDismissed, myLocation, waypoints.length]);
 
   function switchDrawingTarget(nextAffected: boolean) {
+    exitSubdivision();
     setDrawingAffectedArea(nextAffected);
     setSelected(null);
     setSelectedArea(null);
@@ -1340,6 +1587,7 @@ export default function FieldSurveyScreen() {
   function measureAffectedFromCompletedPlot() {
     if (!validation.valid) return;
     stopWalk(null);
+    exitSubdivision();
     const carriedWaypoints = shapeRef.current.waypoints;
     const inheritedOutlineRemoteId = storedRemoteId ?? outlineFromRemoteId;
     const nextUuid = randomUUID();
@@ -1370,6 +1618,7 @@ export default function FieldSurveyScreen() {
 
   function startNewBoundary() {
     stopWalk(null);
+    exitSubdivision();
     setHasEdited(false);
     setLabel('');
     setStoredRemoteId(null);
@@ -1487,6 +1736,8 @@ export default function FieldSurveyScreen() {
     hasSelection: selected !== null,
     selectedSet: selected?.set ?? null,
     activeAffectedCount: affectedWaypoints.length,
+    subdividing,
+    subdivisionPieceCount: subdivisionPieces.length,
   });
   const undoAvailable = !controlsLocked && canUndoForTarget(shape, history, drawingAffectedArea);
   const canStartAffectedFromCompletedPlot = validation.valid && (mode === 'sent' || mode === 'waiting_to_send');
@@ -1494,12 +1745,24 @@ export default function FieldSurveyScreen() {
   const listedRef = (index: number): PointRef => selectedArea !== null && affectedAreaWaypointSets[selectedArea] ? { set: 'area', area: selectedArea, index } : drawingAffectedArea ? { set: 'active', index } : { set: 'plot', index };
   // A report can use the map once the plot is measured, nothing is left open, and the draft is saved.
   const reportReady = !screenCanEdit(mode)
-    || (validation.valid && affectedWaypoints.length === 0 && affectedMeasurement?.valid === true && saveState === 'saved');
+    || (validation.valid && !subdividing && affectedWaypoints.length === 0 && affectedMeasurement?.valid === true && saveState === 'saved');
   const measuredAffectedSqm = validation.valid && affectedMeasurement?.valid ? affectedMeasurement.areaSqm : null;
-  const affectedPercent = validation.valid && measuredAffectedSqm !== null && measuredAffectedSqm > 0
-    ? ` (${((measuredAffectedSqm / validation.areaSqm) * 100).toFixed(1)}%)`
-    : '';
-  const areaReadout = `${screenValidation}${measuredAffectedSqm !== null && affectedAreas.length > 0 ? ` · ${measuredAffectedSqm.toFixed(0)} m² affected${affectedPercent}` : measuredAffectedSqm === 0 ? ` · ${FIELD_SURVEY_COPY.noAffectedFoundReadout}` : affectedMeasurement && !affectedMeasurement.valid ? ` · ${affectedMeasurement.error.message}` : ''}`;
+  const affectedPercentValue = validation.valid && measuredAffectedSqm !== null && measuredAffectedSqm > 0
+    ? Math.min(100, (measuredAffectedSqm / validation.areaSqm) * 100)
+    : null;
+  const affectedPercent = affectedPercentValue !== null ? ` (${affectedPercentValue.toFixed(1)}%)` : '';
+  const liveSubdivisionReadout = subdividing && subdivisionSelectionSummary
+    ? ` · ${Math.round(subdivisionSelectionSummary.combinedAreaSqm).toLocaleString()} m² selected (${subdivisionSelectionSummary.combinedPercentOfPlot.toFixed(1)}%)`
+    : null;
+  const affectedReadoutSuffix = liveSubdivisionReadout
+    ?? (measuredAffectedSqm !== null && affectedAreas.length > 0
+      ? ` · ${measuredAffectedSqm.toFixed(0)} m² affected${affectedPercent}`
+      : measuredAffectedSqm === 0
+        ? ` · ${FIELD_SURVEY_COPY.noAffectedFoundReadout}`
+        : affectedMeasurement && !affectedMeasurement.valid
+          ? ` · ${affectedMeasurement.error.message}`
+          : '');
+  const areaReadout = `${screenValidation}${affectedReadoutSuffix}`;
   // Offered once the plot is measured and nothing affected is drawn or being drawn.
   const canConfirmNoAffected = validation.valid && !expanded && !controlsLocked && affectedAreas.length === 0 && affectedWaypoints.length === 0 && !drawingAffectedArea;
   // One message on the map: what to tap next while drawing, otherwise what state the boundary is in.
@@ -1512,8 +1775,8 @@ export default function FieldSurveyScreen() {
   const walkBand = walkLive ? walkAccuracyBand(walkLive.fix.accuracy) : null;
   const showToolHint = !showWalkNotice && (
     mode === 'drawing_new'
-    || (mode === 'drawing_resumed' && (hasEdited || drawingAffectedArea || selected !== null))
-    || (gpsBusy && screenCanEdit(mode))
+    || (mode === 'drawing_resumed' && (hasEdited || drawingAffectedArea || selected !== null || subdividing))
+    || ((gpsBusy || subdividing) && screenCanEdit(mode))
   );
   const walkStatusMatchesFeedback = showWalkNotice && activeMapFeedback !== null && mapNotice === activeMapFeedback.text;
   const showFeedbackPill = activeMapFeedback !== null && !walkStatusMatchesFeedback;
@@ -1619,6 +1882,15 @@ export default function FieldSurveyScreen() {
               const isSelected = sameRef(selected, { set: 'plot', index });
               return <Circle key={`${point.latitude}:${point.longitude}:${index}`} cx={at.x} cy={at.y} r={isSelected ? 9 : 7} fill={isSelected ? theme.warning : colors.fill} stroke={colors.stroke} strokeWidth={quality === 'map' || quality === 'weak' ? 3 : 2} />;
             })}
+            {subdividing && !controlsLocked ? (
+              <SubdivisionSvgLayer
+                pieces={subdivisionPieces}
+                selectedPieceIds={selectedPieceIds}
+                cutLines={cutLines}
+                activeCut={activeCut}
+                layerPoint={layerPoint}
+              />
+            ) : null}
             {walking && walkLive && walkTarget.at(-1) ? (() => {
               const from = layerPoint(walkTarget.at(-1) as SurveyWaypoint);
               const to = layerPoint(walkLive.fix);
@@ -1640,14 +1912,28 @@ export default function FieldSurveyScreen() {
               return <Circle cx={at.x} cy={at.y} r={8} fill={theme.info} stroke="white" strokeWidth={3} />;
             })() : null}
           </Svg>
-          {controlsLocked || walking ? null : handles}
-          {controlsLocked ? null : areaChips.map(({ index, at }) => (
+          {controlsLocked || walking || subdividing ? null : handles}
+          {controlsLocked || subdividing ? null : areaChips.map(({ index, at }) => (
             <Pressable key={`area-chip-${index}`} testID={`field-survey.area-chip.${index}`} disabled={editLocked} accessibilityRole="button" accessibilityState={{ selected: selectedArea === index, disabled: editLocked }} accessibilityLabel={FIELD_SURVEY_COPY.affectedAreaChip(index + 1, areaSqm(index))} onPress={() => { setSelectedArea((current) => current === index ? null : index); setSelected(null); }} style={[styles.areaChip, { left: at.x - 16, top: at.y - 12, backgroundColor: selectedArea === index ? theme.warning : theme.surfaceElevated, borderColor: validityMarks.outsideAreas.includes(index) ? theme.danger : theme.warning }]}>
               <Text style={[styles.areaChipText, { color: selectedArea === index ? 'white' : theme.text }]}>A{index + 1}</Text>
             </Pressable>
           ))}
+          {subdividing && !controlsLocked && !walking ? (
+            <SubdivisionTouchLayer
+              pieces={subdivisionPieces}
+              selectedPieceIds={selectedPieceIds}
+              cutLines={cutLines}
+              layerPoint={layerPoint}
+              disabled={editLocked}
+              onTogglePiece={toggleSubdivisionPiece}
+              onInsertBend={insertCutBend}
+              onCutDragBegin={beginCutDrag}
+              onCutDragMove={dragCutTo}
+              onCutDragEnd={endCutDrag}
+            />
+          ) : null}
           </Animated.View>
-          {controlsLocked || walking ? null : (
+          {controlsLocked || walking || (subdividing && !placingCut) ? null : (
             <View testID="field-survey.crosshair" pointerEvents="none" style={styles.crosshair}>
               <View style={[styles.crosshairBarH, { backgroundColor: theme.text }]} />
               <View style={[styles.crosshairBarV, { backgroundColor: theme.text }]} />
@@ -1740,7 +2026,7 @@ export default function FieldSurveyScreen() {
           </View>
           <View pointerEvents="box-none" style={styles.overlayBottom}>
             <View pointerEvents="box-none" style={styles.modeSwitch}>
-              <AppButton testID="field-survey.walk" leadingIcon={walking ? 'square' : 'navigation'} variant="secondary" selected={walking} style={[styles.floatingButton, walking && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => void toggleWalk()} disabled={(gpsBusy && !walking) || controlsLocked}>{walking ? FIELD_SURVEY_COPY.walkStop : walkResumable ? FIELD_SURVEY_COPY.walkResume : FIELD_SURVEY_COPY.modeWalk}</AppButton>
+              <AppButton testID="field-survey.walk" leadingIcon={walking ? 'square' : 'navigation'} variant="secondary" selected={walking} style={[styles.floatingButton, walking && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => void toggleWalk()} disabled={(gpsBusy && !walking) || controlsLocked || subdividing}>{walking ? FIELD_SURVEY_COPY.walkStop : walkResumable ? FIELD_SURVEY_COPY.walkResume : FIELD_SURVEY_COPY.modeWalk}</AppButton>
               {/* While walking there is no Tap button, so a stray thumb cannot end the walk by choosing it. */}
               {walking && walkBackAtStart ? (
                 <AppButton testID="field-survey.walk-finish" leadingIcon="check" variant="secondary" style={[styles.floatingButton, { borderColor: theme.success, borderWidth: 2 }]} onPress={finishWalk}>{FIELD_SURVEY_COPY.walkFinish}</AppButton>
@@ -1748,11 +2034,11 @@ export default function FieldSurveyScreen() {
                 <AppButton testID="field-survey.walk-corner" leadingIcon="corner-down-right" variant="secondary" style={styles.floatingButton} onPress={markCorner} disabled={!walkLive}>{FIELD_SURVEY_COPY.walkMarkCorner}</AppButton>
               ) : null}
               {walking ? null : (
-                <AppButton testID="field-survey.tap" leadingIcon="map-pin" variant="secondary" selected style={[styles.floatingButton, { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => setWalkNotice(null)} disabled={controlsLocked}>{FIELD_SURVEY_COPY.modeTap}</AppButton>
+                <AppButton testID="field-survey.tap" leadingIcon="map-pin" variant="secondary" selected={!subdividing} style={[styles.floatingButton, !subdividing && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} onPress={() => { if (subdividing) cancelSubdivision(); setWalkNotice(null); }} disabled={controlsLocked}>{FIELD_SURVEY_COPY.modeTap}</AppButton>
               )}
             </View>
-            {controlsLocked || walking ? null : (
-              <AppButton testID="field-survey.add-center" leadingIcon="plus" accessibilityLabel={FIELD_SURVEY_COPY.addAtCenterLabel} style={styles.floatingButton} onPress={addPointAtCenter}>{selected ? FIELD_SURVEY_COPY.moveToCenter : FIELD_SURVEY_COPY.addAtCenter}</AppButton>
+            {controlsLocked || walking || (subdividing && !placingCut) ? null : (
+              <AppButton testID="field-survey.add-center" leadingIcon="plus" accessibilityLabel={subdividing ? FIELD_SURVEY_COPY.divideAddAtCenterLabel : FIELD_SURVEY_COPY.addAtCenterLabel} style={styles.floatingButton} onPress={addPointAtCenter}>{subdividing ? FIELD_SURVEY_COPY.divideAddAtCenter : selected ? FIELD_SURVEY_COPY.moveToCenter : FIELD_SURVEY_COPY.addAtCenter}</AppButton>
             )}
           </View>
         </View>
@@ -1792,12 +2078,32 @@ export default function FieldSurveyScreen() {
             <AppButton testID="field-survey.target-plot" leadingIcon="square" variant="secondary" selected={!drawingAffectedArea} style={[styles.toolButton, !drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.primary, borderWidth: 2 }]} disabled={editLocked} onPress={() => switchDrawingTarget(false)}>{FIELD_SURVEY_COPY.plotBoundary}</AppButton>
             <AppButton testID="field-survey.target-affected" leadingIcon="alert-triangle" variant="secondary" selected={drawingAffectedArea} style={[styles.toolButton, drawingAffectedArea && { backgroundColor: theme.backgroundSelected, borderColor: theme.warning, borderWidth: 2 }]} disabled={editLocked} onPress={() => switchDrawingTarget(true)}>{FIELD_SURVEY_COPY.affectedAreaBoundary}</AppButton>
           </View>
-          <View style={styles.toolRow}>
-            {/* Three buttons share the row while an affected area is open, so they drop their icons to keep one line each. */}
-            <AppButton variant="secondary" leadingIcon={drawingAffectedArea ? undefined : 'corner-up-left'} style={styles.toolButton} disabled={!undoAvailable} onPress={undoLast}>{FIELD_SURVEY_COPY.undo}</AppButton>
-            <AppButton variant="secondary" leadingIcon={drawingAffectedArea ? undefined : 'trash-2'} style={styles.toolButton} disabled={selected === null || editLocked} onPress={removeSelected}>{FIELD_SURVEY_COPY.removeSelected}</AppButton>
-            {drawingAffectedArea ? <AppButton testID="field-survey.finish-area" variant="secondary" style={styles.toolButton} disabled={affectedWaypoints.length < 3 || editLocked} onPress={finishAffectedArea}>{FIELD_SURVEY_COPY.finishAffectedArea}</AppButton> : null}
-          </View>
+          {drawingAffectedArea && !controlsLocked && !walking ? (
+            subdividing ? (
+              <View testID="field-survey.divide-cut-tools" style={styles.toolRow}>
+                <AppButton testID="field-survey.divide-add-cut" leadingIcon="plus" variant="secondary" style={styles.toolButton} disabled={subdivisionPieces.length < 2 || addingCut} onPress={startAdditionalCut}>{FIELD_SURVEY_COPY.divideAddCut}</AppButton>
+                <AppButton testID="field-survey.divide-clear" leadingIcon="rotate-ccw" variant="secondary" style={styles.toolButton} disabled={cutLines.length === 0 && activeCut.length === 0} onPress={clearCutLines}>{FIELD_SURVEY_COPY.divideClearCuts}</AppButton>
+              </View>
+            ) : (
+              <View testID="field-survey.affected-quick-tools" style={styles.toolRow}>
+                <AppButton testID="field-survey.divide-plot" leadingIcon="scissors" variant="secondary" style={styles.toolButton} onPress={startSubdivision}>{FIELD_SURVEY_COPY.dividePlot}</AppButton>
+                <AppButton testID="field-survey.whole-plot-affected" leadingIcon="maximize" variant="secondary" selected={wholePlotSelected} style={[styles.toolButton, wholePlotSelected && { backgroundColor: theme.backgroundSelected, borderColor: theme.warning, borderWidth: 2 }]} onPress={markWholePlotAffected}>{FIELD_SURVEY_COPY.wholePlotAffected}</AppButton>
+              </View>
+            )
+          ) : null}
+          {subdividing ? (
+            <View testID="field-survey.divide-actions" style={styles.toolRow}>
+              <AppButton testID="field-survey.divide-cancel" variant="secondary" style={styles.toolButton} onPress={cancelSubdivision}>{FIELD_SURVEY_COPY.divideCancel}</AppButton>
+              <AppButton testID="field-survey.divide-apply" leadingIcon="check" style={styles.toolButton} disabled={selectedSubdivisionPieces.length === 0} onPress={applySubdivision}>{FIELD_SURVEY_COPY.divideApply(selectedSubdivisionPieces.length)}</AppButton>
+            </View>
+          ) : (
+            <View style={styles.toolRow}>
+              {/* Three buttons share the row while an affected area is open, so they drop their icons to keep one line each. */}
+              <AppButton variant="secondary" leadingIcon={drawingAffectedArea ? undefined : 'corner-up-left'} style={styles.toolButton} disabled={!undoAvailable} onPress={undoLast}>{FIELD_SURVEY_COPY.undo}</AppButton>
+              <AppButton variant="secondary" leadingIcon={drawingAffectedArea ? undefined : 'trash-2'} style={styles.toolButton} disabled={selected === null || editLocked} onPress={removeSelected}>{FIELD_SURVEY_COPY.removeSelected}</AppButton>
+              {drawingAffectedArea ? <AppButton testID="field-survey.finish-area" variant="secondary" style={styles.toolButton} disabled={affectedWaypoints.length < 3 || editLocked} onPress={finishAffectedArea}>{FIELD_SURVEY_COPY.finishAffectedArea}</AppButton> : null}
+            </View>
+          )}
           {expanded ? (
             <View style={styles.expandedBar}>
               <Text accessibilityLiveRegion="polite" testID="field-survey.area" numberOfLines={2} style={[styles.areaCompact, { color: validation.valid ? theme.primaryDark : theme.textSecondary }]}>{areaReadout}</Text>
@@ -1844,7 +2150,7 @@ export default function FieldSurveyScreen() {
             </View>
           ) : null}
         {!forReport && screenIsStoredOrMissing(mode) && mode !== 'sending' ? <AppButton variant="secondary" onPress={startNewBoundary}>{screenNeedsFreshIdentity(mode) ? FIELD_SURVEY_COPY.startNewBoundaryAfterRejection : FIELD_SURVEY_COPY.newSurvey}</AppButton> : null}
-          <AppButton leadingIcon="crosshair" variant="secondary" style={styles.toolButton} onPress={() => void captureGpsWaypoint()} busy={gpsBusy} disabled={gpsBusy || walking || controlsLocked}>{gpsBusy ? FIELD_SURVEY_COPY.capturingGps : FIELD_SURVEY_COPY.addGpsPoint}</AppButton>
+          <AppButton leadingIcon="crosshair" variant="secondary" style={styles.toolButton} onPress={() => void captureGpsWaypoint()} busy={gpsBusy} disabled={gpsBusy || walking || controlsLocked || subdividing}>{gpsBusy ? FIELD_SURVEY_COPY.capturingGps : FIELD_SURVEY_COPY.addGpsPoint}</AppButton>
           <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.mapHelp}</Text>
           <Pressable
             accessibilityRole="button"
@@ -1869,7 +2175,7 @@ export default function FieldSurveyScreen() {
               <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.qualityPlotArea}: {Math.round(validation.areaSqm).toLocaleString()} m² · {FIELD_SURVEY_COPY.qualityPoints}: {quality.pointCount}</Text>
               <Text style={[styles.help, { color: badge === 'good' || badge === 'drawn_on_map' ? theme.success : theme.warning }]}>{FIELD_SURVEY_COPY.qualityState[badge]}</Text>
               {quality.worst ? <Text style={[styles.help, { color: theme.textSecondary }]}>{FIELD_SURVEY_COPY.qualityWorst(quality.worst.index + 1, quality.worst.accuracyMeters)}</Text> : null}
-              {affectedMeasurement?.valid ? <Text testID="field-survey.quality-affected" style={[styles.help, { color: theme.textSecondary }]}>{measuredAffectedSqm === null ? FIELD_SURVEY_COPY.qualityAffectedNotMeasured : measuredAffectedSqm === 0 ? FIELD_SURVEY_COPY.noAffectedFoundReadout : FIELD_SURVEY_COPY.qualityAffected(measuredAffectedSqm, (measuredAffectedSqm / validation.areaSqm) * 100)}</Text> : null}
+              {affectedMeasurement?.valid ? <Text testID="field-survey.quality-affected" style={[styles.help, { color: theme.textSecondary }]}>{measuredAffectedSqm === null ? FIELD_SURVEY_COPY.qualityAffectedNotMeasured : measuredAffectedSqm === 0 ? FIELD_SURVEY_COPY.noAffectedFoundReadout : FIELD_SURVEY_COPY.qualityAffected(measuredAffectedSqm, Math.min(100, (measuredAffectedSqm / validation.areaSqm) * 100))}</Text> : null}
               {badge === 'low_accuracy' && quality.worst ? <AppButton variant="secondary" leadingIcon="crosshair" disabled={gpsBusy || editLocked} busy={gpsBusy} onPress={() => { const worst = quality.worst; if (worst) void recaptureWorstPoint(waypoints[worst.index]); }}>{FIELD_SURVEY_COPY.recapturePoint(quality.worst.index + 1)}</AppButton> : null}
             </View>
           ) : null}
@@ -1897,7 +2203,7 @@ export default function FieldSurveyScreen() {
               {Object.entries(fieldErrors).map(([field, messages]) => <Text key={field} style={[styles.error, { color: theme.danger }]}>{field === 'district_code' ? messages.join(' ') : `${field}: ${messages.join(' ')}`}</Text>)}
             </>
           }
-          primary={forReport ? <AppButton testID="field-survey.use-in-report" leadingIcon="check" disabled={!reportReady} onPress={() => router.back()}>{FIELD_SURVEY_COPY.reportDone}</AppButton> : <AppButton testID="field-survey.submit" leadingIcon="upload-cloud" busy={saving} disabled={!screenCanSubmit(screenState) || !validation.valid || saveState !== 'saved' || saving || affectedWaypoints.length > 0} onPress={() => void saveAndSync()}>{saving ? FIELD_SURVEY_SYNC_COPY.submitting : FIELD_SURVEY_SYNC_COPY.submit}</AppButton>}
+          primary={forReport ? <AppButton testID="field-survey.use-in-report" leadingIcon="check" disabled={!reportReady} onPress={() => router.back()}>{FIELD_SURVEY_COPY.reportDone}</AppButton> : <AppButton testID="field-survey.submit" leadingIcon="upload-cloud" busy={saving} disabled={!screenCanSubmit(screenState) || !validation.valid || saveState !== 'saved' || saving || subdividing || affectedWaypoints.length > 0} onPress={() => void saveAndSync()}>{saving ? FIELD_SURVEY_SYNC_COPY.submitting : FIELD_SURVEY_SYNC_COPY.submit}</AppButton>}
           secondary={<AppButton variant="secondary" style={dockSecondaryButtonStyle} onPress={() => router.back()}>{FIELD_SURVEY_COPY.close}</AppButton>}
         />}
       </KeyboardAvoidingView>

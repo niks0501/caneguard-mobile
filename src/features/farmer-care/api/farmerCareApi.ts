@@ -69,10 +69,19 @@ export async function fetchFarmerInquiries(token: string): Promise<RemoteFarmerI
   return data.map(parseInquiry).filter((item): item is RemoteFarmerInquiry => item !== null);
 }
 
+export async function fetchFarmerInquiry(uuid: string, token: string): Promise<RemoteFarmerInquiry> {
+  const response = await apiRequest<unknown>(`/api/v1/mobile/farmer/inquiries/${encodeURIComponent(uuid)}`, { token });
+  const inquiry = parseInquiry(readData(response));
+  if (!inquiry || inquiry.remoteId !== uuid) {
+    throw new ApiTransportError('The request response did not match the requested inquiry.');
+  }
+  return inquiry;
+}
+
 export interface FarmerAdvisoriesResult {
   items: FarmerAdvisoryItem[];
   /** The home barangay the office holds for this farmer, so a phone with none set can adopt it. */
-  homeBarangay: string | null;
+  homeBarangay?: string | null;
 }
 
 export async function fetchFarmerAdvisories(token: string): Promise<FarmerAdvisoriesResult> {
@@ -96,8 +105,9 @@ export async function fetchFarmerAdvisories(token: string): Promise<FarmerAdviso
     };
     if (Object.values(item).every((value) => value !== '')) items.push(item);
   }
-  const home = response && typeof response === 'object' ? (response as { home_barangay?: unknown }).home_barangay : null;
-  return { items, homeBarangay: typeof home === 'string' && home.trim() ? home.trim() : null };
+  const home = response && typeof response === 'object' ? (response as { home_barangay?: unknown }).home_barangay : undefined;
+  const homeBarangay = typeof home === 'string' && home.trim() ? home.trim() : home === null ? null : undefined;
+  return { items, homeBarangay };
 }
 
 export async function updateFarmerProfile(

@@ -77,6 +77,59 @@ describe('useFarmerCare & useHomeBarangay', () => {
     native.close();
   });
 
+  it('does not let a pending push acknowledgement overwrite a newer home barangay', async () => {
+    await writeHomeBarangay(FARMER_A, { barangay: 'Aga', pushPending: true });
+    let care!: ReturnType<typeof useFarmerCare>;
+    let home!: ReturnType<typeof useHomeBarangay>;
+    function Harness() {
+      care = useFarmerCare();
+      home = useHomeBarangay();
+      return null;
+    }
+    let ack!: () => void;
+    jest.mocked(updateFarmerProfile)
+      .mockImplementationOnce(() => new Promise<void>(resolve => { ack = resolve; }))
+      .mockResolvedValueOnce(undefined);
+    await render(<Harness />);
+    await waitFor(() => expect(home.loaded).toBe(true));
+    let earlier!: ReturnType<typeof care.syncNow>;
+    await act(async () => {
+      earlier = care.syncNow();
+      await Promise.resolve();
+    });
+    expect(updateFarmerProfile).toHaveBeenNthCalledWith(1, { barangay: 'Aga' }, expect.anything());
+    let later!: ReturnType<typeof home.save>;
+    await act(async () => {
+      later = home.save('Banilad', { syncAfter: false });
+      await Promise.resolve();
+    });
+    await waitFor(async () => expect(await readHomeBarangay(FARMER_A)).toEqual({ barangay: 'Banilad', pushPending: true }));
+    expect(updateFarmerProfile).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      ack();
+      await earlier;
+      expect(await later).toBe('saved');
+    });
+    expect(updateFarmerProfile).toHaveBeenNthCalledWith(2, { barangay: 'Banilad' }, expect.anything());
+    expect(await readHomeBarangay(FARMER_A)).toEqual({ barangay: 'Banilad', pushPending: false });
+  });
+
+  it('adopts a successfully downloaded null home barangay from the office', async () => {
+    await writeHomeBarangay(FARMER_A, { barangay: 'Aga', pushPending: false });
+    let care!: ReturnType<typeof useFarmerCare>;
+    let home!: ReturnType<typeof useHomeBarangay>;
+    function Harness() {
+      care = useFarmerCare();
+      home = useHomeBarangay();
+      return null;
+    }
+    await render(<Harness />);
+    await waitFor(() => expect(home.barangay).toBe('Aga'));
+    await act(async () => { await care.syncNow({ refreshAdvisories: true }); });
+    expect(await readHomeBarangay(FARMER_A)).toEqual({ barangay: null, pushPending: false });
+  });
+
   it('does not trigger the 10-minute cooldown when advisory download fails (CG-04)', async () => {
     let careRef!: ReturnType<typeof useFarmerCare>;
     function Harness() {

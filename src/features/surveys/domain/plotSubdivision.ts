@@ -3,6 +3,7 @@ import GeometryFactory from 'jsts/org/locationtech/jts/geom/GeometryFactory.js';
 import InteriorPointArea from 'jsts/org/locationtech/jts/algorithm/InteriorPointArea.js';
 import IsSimpleOp from 'jsts/org/locationtech/jts/operation/IsSimpleOp.js';
 import IsValidOp from 'jsts/org/locationtech/jts/operation/valid/IsValidOp.js';
+import OverlayOp from 'jsts/org/locationtech/jts/operation/overlay/OverlayOp.js';
 import Polygonizer from 'jsts/org/locationtech/jts/operation/polygonize/Polygonizer.js';
 import RelateOp from 'jsts/org/locationtech/jts/operation/relate/RelateOp.js';
 import UnaryUnionOp from 'jsts/org/locationtech/jts/operation/union/UnaryUnionOp.js';
@@ -77,6 +78,7 @@ interface JstsCoordinate {
 interface JstsPolygonLike {
   getExteriorRing(): { getCoordinates(): JstsCoordinate[] };
   getNumInteriorRing(): number;
+  getArea(): number;
 }
 
 interface JstsCollectionLike<T> {
@@ -531,4 +533,71 @@ export function pointInPiece(point: MapCoordinate, piece: SubdivisionPiece): boo
   } catch {
     return false;
   }
+}
+
+/** Minimum IoU required to carry a selected piece's identity across a cut edit. */
+const REMAP_MIN_IOU = 0.5;
+
+/**
+ * Remaps previously selected subdivision pieces onto a newly computed set of
+ * pieces by geometric overlap (IoU), so renumbering `P1`/`P2` after dragging or
+ * bending a cut never silently switches the selected side. Returns `[]` if any
+ * previously selected piece cannot be unambiguously matched, prompting a fresh selection.
+ */
+export function remapSelectedPieceIds(
+  previousSelected: SubdivisionPiece[],
+  nextPieces: SubdivisionPiece[],
+): string[] {
+  if (previousSelected.length === 0 || nextPieces.length === 0) return [];
+  const nextGeoms: { id: string; geom: JstsPolygonLike; area: number }[] = [];
+  for (const piece of nextPieces) {
+    try {
+      const geom = reader.read(piece.polygon) as unknown as JstsPolygonLike;
+      const area = geom.getArea();
+      if (Number.isFinite(area) && area > 0) {
+        nextGeoms.push({ id: piece.id, geom, area });
+      }
+    } catch {
+      return [];
+    }
+  }
+  if (nextGeoms.length !== nextPieces.length) return [];
+
+  const matched = new Set<string>();
+  const result: string[] = [];
+  for (const prev of previousSelected) {
+    let prevGeom: JstsPolygonLike;
+    let prevArea: number;
+    try {
+      prevGeom = reader.read(prev.polygon) as unknown as JstsPolygonLike;
+      prevArea = prevGeom.getArea();
+    } catch {
+      return [];
+    }
+    if (!Number.isFinite(prevArea) || prevArea <= 0) return [];
+
+    let bestId: string | null = null;
+    let bestIou = 0;
+    for (const candidate of nextGeoms) {
+      try {
+        const intersected = OverlayOp.intersection(prevGeom as never, candidate.geom as never) as unknown as JstsPolygonLike;
+        const overlap = intersected.getArea();
+        if (!Number.isFinite(overlap) || overlap <= 0) continue;
+        const union = prevArea + candidate.area - overlap;
+        const iou = union > 0 ? overlap / union : 0;
+        if (iou > bestIou) {
+          bestIou = iou;
+          bestId = candidate.id;
+        }
+      } catch {
+        continue;
+      }
+    }
+    if (!bestId || bestIou < REMAP_MIN_IOU || matched.has(bestId)) {
+      return [];
+    }
+    matched.add(bestId);
+    result.push(bestId);
+  }
+  return result;
 }

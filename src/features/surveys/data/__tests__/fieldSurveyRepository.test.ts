@@ -465,4 +465,92 @@ describe('field survey local repository', () => {
     });
     native.close();
   });
+
+  // Intent: when replacing a completed map for a Field Report, the new survey and the
+  // report's field_survey_client_uuid + measurements are persisted together so an OS kill
+  // before returning to Field Report never leaves the report linked to the old map.
+  it('atomically relinks the draft field report and refreshes measurements when saving a replacement survey', async () => {
+    const { database, native } = openDatabase();
+    native.exec(`
+      CREATE TABLE IF NOT EXISTS field_reports (
+        id TEXT PRIMARY KEY,
+        scan_record_id TEXT NOT NULL,
+        authoring_state TEXT NOT NULL DEFAULT 'draft',
+        submitter_identity TEXT,
+        field_survey_client_uuid TEXT,
+        plot_area_hectares REAL,
+        plot_area_measurement TEXT,
+        affected_area_hectares REAL,
+        affected_area_measurement TEXT,
+        affected_portion_percent REAL,
+        affected_portion_measurement TEXT,
+        observed_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      INSERT INTO field_reports (
+        id, scan_record_id, authoring_state, submitter_identity, field_survey_client_uuid,
+        plot_area_hectares, plot_area_measurement, affected_area_hectares, affected_area_measurement,
+        affected_portion_percent, affected_portion_measurement, observed_at, created_at, updated_at
+      ) VALUES (
+        'report-1', 'scan-1', 'draft', 'owner-1', 'sent-plot-uuid',
+        1.2, 'measured', NULL, 'not_measured', NULL, 'not_measured',
+        '2026-10-05T08:05:00.000Z', '2026-10-05T08:05:00.000Z', '2026-10-05T08:05:00.000Z'
+      );
+    `);
+
+    const quarterPolygon = {
+      type: 'Polygon' as const,
+      coordinates: [[[120, 14], [120.0005, 14], [120.0005, 14.0005], [120, 14.0005], [120, 14]]],
+    };
+    const quarterWaypoints = [
+      { latitude: 14, longitude: 120, source: 'map' as const, accuracyMeters: null, capturedAt: '2026-10-05T09:00:00.000Z' },
+      { latitude: 14, longitude: 120.0005, source: 'map' as const, accuracyMeters: null, capturedAt: '2026-10-05T09:00:01.000Z' },
+      { latitude: 14.0005, longitude: 120.0005, source: 'map' as const, accuracyMeters: null, capturedAt: '2026-10-05T09:00:02.000Z' },
+      { latitude: 14.0005, longitude: 120, source: 'map' as const, accuracyMeters: null, capturedAt: '2026-10-05T09:00:03.000Z' },
+    ];
+
+    // Step 1: initial replacement save (plot copied, no affected area yet) relinks the draft report immediately.
+    await saveFieldSurveyDraft(database, {
+      authorRole: 'field_reporter',
+      capturedAt: waypoint.capturedAt,
+      clientUuid: 'replacement-draft-uuid',
+      districtCode: 'D-01',
+      ownerIdentity: 'owner-1',
+      waypoints: plotWaypoints,
+      relinkReport: { reportId: 'report-1', replacedSurveyUuid: 'sent-plot-uuid' },
+    });
+
+    let reportRow = native
+      .prepare('SELECT field_survey_client_uuid, affected_area_hectares, affected_area_measurement, affected_portion_percent FROM field_reports WHERE id = ?')
+      .get('report-1') as Record<string, unknown>;
+    expect(reportRow.field_survey_client_uuid).toBe('replacement-draft-uuid');
+    expect(reportRow.affected_area_hectares).toBeNull();
+    expect(reportRow.affected_area_measurement).toBe('not_measured');
+
+    // Step 2: inspector draws affected area and autosave runs; if the OS kills the app now,
+    // the draft report already has both the replacement survey link and the measured figures.
+    await saveFieldSurveyDraft(database, {
+      authorRole: 'field_reporter',
+      capturedAt: waypoint.capturedAt,
+      clientUuid: 'replacement-draft-uuid',
+      districtCode: 'D-01',
+      ownerIdentity: 'owner-1',
+      waypoints: plotWaypoints,
+      affectedAreaPolygons: [quarterPolygon],
+      affectedAreaWaypoints: [quarterWaypoints],
+      relinkReport: { reportId: 'report-1', replacedSurveyUuid: 'sent-plot-uuid' },
+    });
+
+    reportRow = native
+      .prepare('SELECT field_survey_client_uuid, plot_area_hectares, affected_area_hectares, affected_area_measurement, affected_portion_percent, affected_portion_measurement FROM field_reports WHERE id = ?')
+      .get('report-1') as Record<string, unknown>;
+    expect(reportRow.field_survey_client_uuid).toBe('replacement-draft-uuid');
+    expect(reportRow.plot_area_hectares).toBeGreaterThan(1.1);
+    expect(reportRow.affected_area_hectares).toBeGreaterThan(0.29);
+    expect(reportRow.affected_area_measurement).toBe('measured');
+    expect(reportRow.affected_portion_percent).toBeCloseTo(25, 0);
+    expect(reportRow.affected_portion_measurement).toBe('measured');
+    native.close();
+  });
 });

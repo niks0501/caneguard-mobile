@@ -1041,7 +1041,7 @@ describe('completed whole-plot transition & recovery', () => {
       remoteId: 'remote-42',
     });
     mockFindSurvey.mockReturnValue(synced);
-    mockUseLocalSearchParams.mockReturnValue({ surveyId: synced.clientUuid, forReport: '1' });
+    mockUseLocalSearchParams.mockReturnValue({ surveyId: synced.clientUuid, forReport: '1', reportId: 'report-99' });
 
     await renderOpen();
     await waitFor(() => expect(screen.getByTestId('field-survey.measure-affected-from-plot.action')).toBeTruthy());
@@ -1052,6 +1052,10 @@ describe('completed whole-plot transition & recovery', () => {
 
     await waitFor(() => expect(mockSaveDraft).toHaveBeenCalled());
     expect(consumeReplacedReportSurvey('sent-plot-uuid')).toBe('3f1de2d8-2ca9-4c26-9e37-2f4c5f6f7a10');
+    expect(mockSaveDraft.mock.lastCall?.[1]?.relinkReport).toEqual({
+      reportId: 'report-99',
+      replacedSurveyUuid: 'sent-plot-uuid',
+    });
   });
 
   it('keeps the Save failed retry action visible in forReport mode when draft autosave fails', async () => {

@@ -52,7 +52,9 @@ import {
   isWholePlotAffected,
   measureSubdivisionSelection,
   pointInPiece,
+  remapSelectedPieceIds,
   subdividePlot,
+  type SubdivisionPiece,
 } from '@/features/surveys/domain/plotSubdivision';
 import { LOADING_SCREEN, NEW_BOUNDARY_SCREEN, screenCanEdit, screenCanSubmit, screenIsStoredOrMissing, screenNeedsFreshIdentity, screenStateForRow, statusStripFor, WAITING_TO_SEND_SCREEN, type ScreenState } from '@/features/surveys/domain/screenMode';
 import { FIELD_SURVEY_SYNC_COPY, SYNC_TONE_COLOR } from '@/features/sync/utils/syncStatusCopy';
@@ -264,12 +266,14 @@ export default function FieldSurveyScreen() {
   const auth = useAuth();
   const { session } = auth;
   const canAuthorSurvey = canAuthorInspectorWork(session?.user);
-  const params = useLocalSearchParams<{ forReport?: string | string[]; surveyId?: string | string[]; outlineFrom?: string | string[] }>();
+  const params = useLocalSearchParams<{ forReport?: string | string[]; reportId?: string | string[]; surveyId?: string | string[]; outlineFrom?: string | string[] }>();
   // Opened from a visit: start from the outline of the map the office holds for that assigned case.
   const outlineFrom = Array.isArray(params.outlineFrom) ? params.outlineFrom[0] : params.outlineFrom;
   const surveyId = Array.isArray(params.surveyId) ? params.surveyId[0] : params.surveyId;
+  const reportId = Array.isArray(params.reportId) ? params.reportId[0] : params.reportId;
   // Opened from a Field Report: the map sends with that report, so there is no separate send step here.
   const forReport = (Array.isArray(params.forReport) ? params.forReport[0] : params.forReport) === '1' && Boolean(surveyId);
+  const [replacedReportSurveyUuid, setReplacedReportSurveyUuid] = useState<string | null>(null);
   const { isOnline, syncNow } = useSync();
   const [clientUuid, setClientUuid] = useState(() => randomUUID());
   // The district comes from the account; the server still checks membership on sync.
@@ -306,6 +310,8 @@ export default function FieldSurveyScreen() {
   const cutLinesRef = useRef<MapCoordinate[][]>([]);
   const [activeCut, setActiveCut] = useState<MapCoordinate[]>([]);
   const [selectedPieceIds, setSelectedPieceIds] = useState<string[]>([]);
+  const selectedPieceIdsRef = useRef<string[]>([]);
+  const subdivisionPiecesRef = useRef<SubdivisionPiece[]>([]);
   const [addingCut, setAddingCut] = useState(false);
   const cutDragRef = useRef<{ cutIndex: number; pointIndex: number; grabbed: MapCoordinate } | null>(null);
   const [selected, setSelected] = useState<PointRef | null>(null);
@@ -388,9 +394,15 @@ export default function FieldSurveyScreen() {
     cutLinesRef.current = next;
     setCutLines(next);
   }, []);
+  const setSelectedPieceIdsSync = useCallback((next: string[]) => {
+    selectedPieceIdsRef.current = next;
+    setSelectedPieceIds(next);
+  }, []);
   const exitSubdivision = useCallback(() => {
     cutDragRef.current = null;
     cutLinesRef.current = [];
+    subdivisionPiecesRef.current = [];
+    selectedPieceIdsRef.current = [];
     setSubdividing(false);
     setCutLines([]);
     setActiveCut([]);
@@ -513,6 +525,9 @@ export default function FieldSurveyScreen() {
     () => (subdivisionResult?.ok ? subdivisionResult.pieces : []),
     [subdivisionResult],
   );
+  useEffect(() => {
+    subdivisionPiecesRef.current = subdivisionPieces;
+  }, [subdivisionPieces]);
   const selectedSubdivisionPieces = useMemo(
     () => subdivisionPieces.filter((piece) => selectedPieceIds.includes(piece.id)),
     [selectedPieceIds, subdivisionPieces],
@@ -639,6 +654,9 @@ export default function FieldSurveyScreen() {
         activeAffectedWaypoints: affectedWaypoints,
         affectedZeroConfirmed: zeroConfirmedNow,
         capturedAt: new Date().toISOString(),
+        ...(replacedReportSurveyUuid
+          ? { relinkReport: { reportId: reportId ?? null, replacedSurveyUuid: replacedReportSurveyUuid } }
+          : {}),
       });
     }).then(() => {
       if (!cancelled && started) setSaveState('saved');
@@ -646,7 +664,7 @@ export default function FieldSurveyScreen() {
       if (!cancelled) setSaveState('failed');
     });
     return () => { cancelled = true; };
-  }, [affectedAreas, affectedAreaWaypointSets, affectedWaypoints, canAuthorSurvey, clientUuid, database, districtCode, editable, hasEdited, label, loaded, outlineFromRemoteId, ready, saveAttempt, session?.user.role, session?.user.uuid, waypoints, zeroConfirmedNow]);
+  }, [affectedAreas, affectedAreaWaypointSets, affectedWaypoints, canAuthorSurvey, clientUuid, database, districtCode, editable, hasEdited, label, loaded, outlineFromRemoteId, ready, replacedReportSurveyUuid, reportId, saveAttempt, session?.user.role, session?.user.uuid, waypoints, zeroConfirmedNow]);
 
   function captureTargetForNewPoint(): WaypointCaptureTarget {
     const replace = selected ? pointOf(shapeRef.current, selected) : null;
@@ -733,6 +751,44 @@ export default function FieldSurveyScreen() {
     }
   }
 
+  function updateSubdivisionCuts(
+    nextLines: MapCoordinate[][],
+    options: { clearSelection?: boolean; updateFeedback?: boolean } = {},
+  ) {
+    const previousSelected = subdivisionPiecesRef.current.filter((piece) =>
+      selectedPieceIdsRef.current.includes(piece.id));
+    setCutLinesSync(nextLines);
+    if (nextLines.length === 0) {
+      subdivisionPiecesRef.current = [];
+      setSelectedPieceIdsSync([]);
+      if (options.updateFeedback) {
+        setMapFeedback({ tone: 'info', text: FIELD_SURVEY_COPY.divideStarted });
+      }
+      return;
+    }
+    const result = subdividePlot(shapeRef.current.waypoints, nextLines);
+    if (result.ok) {
+      subdivisionPiecesRef.current = result.pieces;
+      if (options.clearSelection) {
+        setSelectedPieceIdsSync([]);
+      } else if (previousSelected.length > 0) {
+        setSelectedPieceIdsSync(remapSelectedPieceIds(previousSelected, result.pieces));
+      }
+      if (options.updateFeedback) {
+        setMapFeedback({ tone: 'info', text: FIELD_SURVEY_COPY.dividePiecesReady(result.pieces.length) });
+      }
+    } else {
+      subdivisionPiecesRef.current = [];
+      setSelectedPieceIdsSync([]);
+      if (options.updateFeedback) {
+        setMapFeedback({
+          tone: result.code === 'SELF_INTERSECTING_CUT' ? 'danger' : 'warning',
+          text: result.message,
+        });
+      }
+    }
+  }
+
   function addCutPoint(coordinate: MapCoordinate) {
     if (controlsLocked || walking || !subdividing) return;
     if (activeCut.length === 0) {
@@ -742,17 +798,16 @@ export default function FieldSurveyScreen() {
     }
     const completedCut = [...activeCut, coordinate];
     const nextCuts = addingCut ? [...cutLinesRef.current, completedCut] : [completedCut];
-    setCutLinesSync(nextCuts);
     setActiveCut([]);
     setAddingCut(false);
-    setSelectedPieceIds([]);
-    updateSubdivisionFeedback(nextCuts);
+    updateSubdivisionCuts(nextCuts, { clearSelection: true, updateFeedback: true });
   }
 
   function toggleSubdivisionPiece(pieceId: string) {
     if (controlsLocked || walking || !subdividing) return;
-    setSelectedPieceIds((current) =>
-      current.includes(pieceId) ? current.filter((id) => id !== pieceId) : [...current, pieceId]);
+    const current = selectedPieceIdsRef.current;
+    const next = current.includes(pieceId) ? current.filter((id) => id !== pieceId) : [...current, pieceId];
+    setSelectedPieceIdsSync(next);
   }
 
   function insertCutBend(cutIndex: number, segmentIndex: number) {
@@ -763,10 +818,9 @@ export default function FieldSurveyScreen() {
     const bent = insertBendPointOnCut(line, segmentIndex);
     if (bent === line) return;
     const next = current.map((entry, index) => (index === cutIndex ? bent : entry));
-    setCutLinesSync(next);
     setAddingCut(false);
     setActiveCut([]);
-    updateSubdivisionFeedback(next);
+    updateSubdivisionCuts(next, { updateFeedback: true });
   }
 
   function beginCutDrag(cutIndex: number, pointIndex: number) {
@@ -785,7 +839,7 @@ export default function FieldSurveyScreen() {
       cutIndex === drag.cutIndex
         ? line.map((point, pointIndex) => (pointIndex === drag.pointIndex ? coordinate : point))
         : line);
-    setCutLinesSync(next);
+    updateSubdivisionCuts(next, { updateFeedback: false });
   }
 
   function endCutDrag() {
@@ -813,9 +867,10 @@ export default function FieldSurveyScreen() {
     setSyncMessage(null);
     setWalkNotice(null);
     cutDragRef.current = null;
+    subdivisionPiecesRef.current = [];
     setCutLinesSync([]);
     setActiveCut([]);
-    setSelectedPieceIds([]);
+    setSelectedPieceIdsSync([]);
     setAddingCut(false);
     setSubdividing(true);
     setMapFeedback({ tone: 'info', text: FIELD_SURVEY_COPY.divideStarted });
@@ -836,9 +891,10 @@ export default function FieldSurveyScreen() {
   function clearCutLines() {
     if (controlsLocked || walking || !subdividing) return;
     cutDragRef.current = null;
+    subdivisionPiecesRef.current = [];
     setCutLinesSync([]);
     setActiveCut([]);
-    setSelectedPieceIds([]);
+    setSelectedPieceIdsSync([]);
     setAddingCut(false);
     setMapFeedback({ tone: 'info', text: FIELD_SURVEY_COPY.divideStarted });
   }
@@ -1593,6 +1649,7 @@ export default function FieldSurveyScreen() {
     const nextUuid = randomUUID();
     if (forReport && surveyId) {
       recordReplacedReportSurvey(surveyId, nextUuid);
+      setReplacedReportSurveyUuid(surveyId);
     }
     const nextShape: DrawingShape = { ...EMPTY_SHAPE, waypoints: carriedWaypoints };
     setResumeOffer(null);
@@ -1627,6 +1684,7 @@ export default function FieldSurveyScreen() {
     setResumeOffer(null);
     setDrawingAffectedArea(false);
     setAffectedZeroConfirmed(false);
+    setReplacedReportSurveyUuid(null);
     setClientUuid(randomUUID());
     setShape(EMPTY_SHAPE);
     setHistory([]);
@@ -1750,7 +1808,9 @@ export default function FieldSurveyScreen() {
   const affectedPercentValue = validation.valid && measuredAffectedSqm !== null && measuredAffectedSqm > 0
     ? Math.min(100, (measuredAffectedSqm / validation.areaSqm) * 100)
     : null;
-  const affectedPercent = affectedPercentValue !== null ? ` (${affectedPercentValue.toFixed(1)}%)` : '';
+  const affectedPercent = affectedPercentValue !== null
+    ? ` (${affectedPercentValue < 0.01 ? '<0.01%' : affectedPercentValue < 0.1 ? `${affectedPercentValue.toFixed(2)}%` : `${affectedPercentValue.toFixed(1)}%`})`
+    : '';
   const liveSubdivisionReadout = subdividing && subdivisionSelectionSummary
     ? ` · ${Math.round(subdivisionSelectionSummary.combinedAreaSqm).toLocaleString()} m² selected (${subdivisionSelectionSummary.combinedPercentOfPlot.toFixed(1)}%)`
     : null;

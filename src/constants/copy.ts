@@ -142,7 +142,12 @@ export const FIELD_SURVEY_COPY = {
   notMeasured: 'Not measured',
   // Shown to two decimals, or all four below 0.01 ha so a small patch never reads as 0; the report keeps the exact figure.
   readoutHectares: (hectares: number) => `${hectares >= 0.01 ? Number(hectares.toFixed(2)) : hectares} ha`,
-  readoutPercent: (percent: number) => `${percent}%`,
+  readoutPercent: (percent: number, positiveArea = false) =>
+    percent === 0
+      ? (positiveArea ? '<0.01%' : '0%')
+      : percent > 0 && percent < 0.01
+        ? '<0.01%'
+        : `${Number(percent.toFixed(2))}%`,
   noAffectedFoundAction: 'No affected area found — 0 ha / 0%',
   noAffectedFoundBody: 'Tap only if you checked the plot and found nothing affected. Leave it off if you did not check: it then stays Not measured.',
   noAffectedFoundConfirmed: 'Confirmed: you checked and found no affected area. This will read 0 ha and 0%.',
@@ -160,7 +165,7 @@ export const FIELD_SURVEY_COPY = {
   linkFilled: (plotHectares: string, affectedHectares: string | null, percent: string | null) =>
     affectedHectares === null
       ? `Filled from your map: ${plotHectares} ha plot. Affected area not measured.`
-      : `Filled from your map: ${plotHectares} ha plot, ${affectedHectares} ha affected${percent === null ? '' : ` (${percent}%)`}.`,
+      : `Filled from your map: ${plotHectares} ha plot, ${affectedHectares} ha affected${percent === null ? '' : ` (${percent.endsWith('%') ? percent : `${percent}%`})`}.`,
   linkOption: (district: string, hectares: string, status: string) => `${district} · ${hectares} ha · ${status}`,
   reportDone: 'Use in report',
   reportUnfinished: 'Add at least 3 plot points and finish any affected area to use this map.',
@@ -292,7 +297,8 @@ export const FIELD_SURVEY_COPY = {
   boundaryQualityTitle: 'Boundary Quality',
   qualityPlotArea: 'Plot area',
   qualityPoints: 'Boundary points',
-  qualityAffected: (sqm: number, percent: number) => `${Math.round(sqm).toLocaleString()} m² affected (${percent.toFixed(1)}%)`,
+  qualityAffected: (sqm: number, percent: number) =>
+    `${Math.round(sqm).toLocaleString()} m² affected (${percent > 0 && percent < 0.01 ? '<0.01%' : percent > 0 && percent < 0.1 ? `${percent.toFixed(2)}%` : `${percent.toFixed(1)}%`})`,
   qualityState: { good: 'GPS: Good', acceptable: 'GPS: Acceptable', low_accuracy: 'GPS: Low accuracy', drawn_on_map: 'Drawn on map' },
   pointQuality: { map: 'placed on the map', good: 'GPS good', acceptable: 'GPS acceptable', weak: 'GPS weak', unknown: 'GPS accuracy unknown' },
   toolState: {

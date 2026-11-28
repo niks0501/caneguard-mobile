@@ -170,8 +170,9 @@ jobs:
           fi
           mkdir -p "$RUNNER_TEMP/apk"
           curl --fail --location --silent --show-error --output "$RUNNER_TEMP/apk/caneguard-production.apk" "$URL"
-          unzip -l "$RUNNER_TEMP/apk/caneguard-production.apk" | grep -q 'AndroidManifest.xml'
-          unzip -l "$RUNNER_TEMP/apk/caneguard-production.apk" | grep -q 'classes.dex'
+          unzip -Z1 "$RUNNER_TEMP/apk/caneguard-production.apk" > "$RUNNER_TEMP/apk/entries.txt"
+          grep -Fxq 'AndroidManifest.xml' "$RUNNER_TEMP/apk/entries.txt"
+          grep -Fxq 'classes.dex' "$RUNNER_TEMP/apk/entries.txt"
           SHA="$(sha256sum "$RUNNER_TEMP/apk/caneguard-production.apk" | cut -d' ' -f1)"
           echo "artifact_url=$URL" >> "$GITHUB_OUTPUT"
           echo "sha256=$SHA" >> "$GITHUB_OUTPUT"

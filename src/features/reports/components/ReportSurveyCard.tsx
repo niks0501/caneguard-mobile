@@ -125,7 +125,14 @@ export function ReportSurveyCard({
           <Readout
             testID="field-report.survey-portion"
             label={FIELD_SURVEY_COPY.linkPortionLabel}
-            value={attachedMeasurements.affectedPortionPercent === null ? FIELD_SURVEY_COPY.notMeasured : FIELD_SURVEY_COPY.readoutPercent(attachedMeasurements.affectedPortionPercent)}
+            value={
+              attachedMeasurements.affectedPortionPercent === null
+                ? FIELD_SURVEY_COPY.notMeasured
+                : FIELD_SURVEY_COPY.readoutPercent(
+                    attachedMeasurements.affectedPortionPercent,
+                    (attachedMeasurements.affectedAreaHectares ?? 0) > 0,
+                  )
+            }
           />
         </View>
       ) : null}

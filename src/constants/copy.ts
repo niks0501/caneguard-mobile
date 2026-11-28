@@ -971,6 +971,7 @@ export type FarmerCopyBlock = {
       reassurance: string;
       willSee: string;
       barangayNeeded: string;
+      barangayUnsupported: string;
       landmarkLabel: string;
       landmarkPlaceholder: string;
       concernLabel: string;
@@ -1002,6 +1003,10 @@ export type FarmerCopyBlock = {
       empty: string;
       open: string;
       close: string;
+      refresh: string;
+      refreshing: string;
+      updatedAt: (when: string) => string;
+      dates: (published: string, expires: string) => string;
     };
     settings: {
       homeBarangayLabel: string;
@@ -1009,6 +1014,9 @@ export type FarmerCopyBlock = {
       homeBarangayNotSet: string;
       homeBarangaySaved: string;
       homeBarangayLocalOnly: string;
+      homeBarangayPendingSync: string;
+      homeBarangayUnsupported: string;
+      homeBarangayInvalid: string;
     };
   };
 };
@@ -1502,6 +1510,7 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
         reassurance: 'This is not an official report. There are no wrong answers.',
         willSee: 'The office will see this photo, your barangay and what you choose below. Nothing else.',
         barangayNeeded: 'Choose your barangay so the office knows where to look.',
+        barangayUnsupported: 'Choose a barangay from the Nasugbu list.',
         landmarkLabel: 'Near (optional)',
         landmarkPlaceholder: 'e.g. near the creek',
         concernLabel: 'What worries you? (optional)',
@@ -1538,6 +1547,10 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
         empty: 'No new guidance from the office right now.',
         open: 'Read',
         close: 'Close',
+        refresh: 'Refresh',
+        refreshing: 'Refreshing…',
+        updatedAt: (when) => `Updated ${when}`,
+        dates: (published, expires) => `Published ${published} · Until ${expires}`,
       },
       settings: {
         homeBarangayLabel: 'Home barangay',
@@ -1545,6 +1558,9 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
         homeBarangayNotSet: 'Not set',
         homeBarangaySaved: 'Home barangay saved.',
         homeBarangayLocalOnly: 'Saved on this phone. It will update when there is signal.',
+        homeBarangayPendingSync: 'Pending sync — will update the office when signal returns.',
+        homeBarangayUnsupported: 'This barangay is not on the Nasugbu list. Pick your barangay above so office guidance reaches you.',
+        homeBarangayInvalid: 'Please pick a barangay from the Nasugbu list.',
       },
     },
   },
@@ -2038,6 +2054,7 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
         reassurance: 'Hindi ito opisyal na ulat. Walang maling sagot.',
         willSee: 'Makikita ng opisina ang larawang ito, ang iyong barangay, at ang pipiliin mo sa ibaba. Wala nang iba.',
         barangayNeeded: 'Piliin ang iyong barangay para malaman ng opisina kung saan titingin.',
+        barangayUnsupported: 'Pumili ng barangay mula sa listahan ng Nasugbu.',
         landmarkLabel: 'Malapit sa (opsyonal)',
         landmarkPlaceholder: 'hal. malapit sa sapa',
         concernLabel: 'Ano ang ikinababahala mo? (opsyonal)',
@@ -2074,6 +2091,10 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
         empty: 'Wala pang bagong payo mula sa opisina.',
         open: 'Basahin',
         close: 'Isara',
+        refresh: 'I-refresh',
+        refreshing: 'Nire-refresh…',
+        updatedAt: (when) => `Na-update ${when}`,
+        dates: (published, expires) => `Inilathala ${published} · Hanggang ${expires}`,
       },
       settings: {
         homeBarangayLabel: 'Barangay mo',
@@ -2081,6 +2102,9 @@ export const FARMER_COPY: Record<FarmerLanguage, FarmerCopyBlock> = {
         homeBarangayNotSet: 'Hindi pa naitakda',
         homeBarangaySaved: 'Na-save ang barangay mo.',
         homeBarangayLocalOnly: 'Naka-save sa telepono. Maa-update kapag may signal.',
+        homeBarangayPendingSync: 'Naghihintay ng sync — ia-update sa opisina pag may signal.',
+        homeBarangayUnsupported: 'Wala ang barangay na ito sa listahan ng Nasugbu. Piliin ang iyong barangay sa itaas para makatanggap ng payo mula sa opisina.',
+        homeBarangayInvalid: 'Pumili ng barangay mula sa listahan ng Nasugbu.',
       },
     },
   },

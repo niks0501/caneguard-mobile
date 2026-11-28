@@ -154,18 +154,57 @@ describe('syncFarmerCare', () => {
     expect(row().remoteStatus).toBe('reviewing');
   });
 
-  it('downloads guidance when asked and keeps the old copy when offline', async () => {
+  it('downloads guidance when asked, reports advisoriesRefreshed accurately, and keeps the old copy when offline', async () => {
     const item = { remoteId: 'adv-1', headlineTl: 'Paalala', headlineEn: 'Reminder', bodyTl: 'Tl', bodyEn: 'En', publishedAt: '2026-11-28T00:00:00.000Z', expiresAt: '2099-01-01T00:00:00.000Z' };
     api.submit.mockResolvedValue({ remoteId: 'remote-1', clientUuid: REQ, status: 'new', replies: [] });
     api.fetchAdvisories.mockResolvedValue({ items: [item], homeBarangay: 'Aga' });
-    expect((await run({ refreshAdvisories: true })).homeBarangay).toBe('Aga');
+    const first = await run({ refreshAdvisories: true });
+    expect(first.homeBarangay).toBe('Aga');
+    expect(first.advisoriesRefreshed).toBe(true);
     expect(listFarmerAdvisories(database, FARMER_A)).toHaveLength(1);
 
     api.fetchAdvisories.mockRejectedValue(new Error('offline'));
-    await run({ refreshAdvisories: true });
+    const failed = await run({ refreshAdvisories: true });
+    expect(failed.advisoriesRefreshed).toBe(false);
     expect(listFarmerAdvisories(database, FARMER_A)).toHaveLength(1);
+
     api.fetchAdvisories.mockResolvedValue({ items: [], homeBarangay: null });
-    await run({ refreshAdvisories: true });
+    const cleared = await run({ refreshAdvisories: true });
+    expect(cleared.advisoriesRefreshed).toBe(true);
     expect(listFarmerAdvisories(database, FARMER_A)).toHaveLength(0);
+  });
+
+  it('still downloads guidance when inquiry submission fails with 503 or 429 Retry-After, but stops on 401 auth expiry', async () => {
+    const item = { remoteId: 'adv-1', headlineTl: 'Paalala', headlineEn: 'Reminder', bodyTl: 'Tl', bodyEn: 'En', publishedAt: '2026-11-28T00:00:00.000Z', expiresAt: '2099-01-01T00:00:00.000Z' };
+    api.submit.mockRejectedValueOnce(new ApiHttpError(503, 'inquiries paused', { body: { code: 'FEATURE_PAUSED' } }));
+    api.fetchAdvisories.mockResolvedValue({ items: [item], homeBarangay: 'Aga' });
+
+    const pausedResult = await run({ refreshAdvisories: true });
+    expect(pausedResult.waiting).toBe(1);
+    expect(pausedResult.advisoriesRefreshed).toBe(true);
+    expect(api.fetchAdvisories).toHaveBeenCalledTimes(1);
+    expect(listFarmerAdvisories(database, FARMER_A)).toHaveLength(1);
+
+    // An inquiry 429 Retry-After holds inquiries without blocking guidance downloads.
+    clock += 61_000;
+    api.submit.mockRejectedValueOnce(new ApiHttpError(429, 'inquiry limit', { retryAfterMs: 600_000 }));
+    const limitedFirst = await run({ refreshAdvisories: true });
+    expect(limitedFirst.advisoriesRefreshed).toBe(true);
+    expect(api.fetchAdvisories).toHaveBeenCalledTimes(2);
+
+    clock += 61_000;
+    const limitedSecond = await run({ refreshAdvisories: true });
+    expect(limitedSecond.held).toBe(true);
+    expect(limitedSecond.advisoriesRefreshed).toBe(true);
+    expect(api.submit).toHaveBeenCalledTimes(2);
+    expect(api.fetchAdvisories).toHaveBeenCalledTimes(3);
+
+    // A 401 session expiry stops both channels cleanly.
+    resetFarmerCareHolds();
+    clock += 61_000;
+    api.submit.mockRejectedValueOnce(new ApiHttpError(401, 'unauthorized'));
+    const authResult = await run({ refreshAdvisories: true });
+    expect(authResult.advisoriesRefreshed).toBe(false);
+    expect(api.fetchAdvisories).toHaveBeenCalledTimes(3);
   });
 });

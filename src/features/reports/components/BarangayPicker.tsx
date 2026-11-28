@@ -23,11 +23,13 @@ const MAX_VISIBLE_OPTIONS = 30;
  * that matches nothing can be kept as-is.
  */
 export function BarangayPicker({
+  allowCustom = true,
   barangays,
   onChange,
   testID = 'field-report.barangay-input',
   value,
 }: {
+  allowCustom?: boolean;
   barangays: string[];
   onChange: (value: string) => void;
   testID?: string;
@@ -42,8 +44,8 @@ export function BarangayPicker({
     [barangays, query],
   );
   const currentMissingFromList =
-    value.trim().length > 0 && !barangays.includes(value.trim());
-  const customMatch = query.trim().length > 0 && options.length === 0;
+    allowCustom && value.trim().length > 0 && !barangays.includes(value.trim());
+  const customMatch = allowCustom && query.trim().length > 0 && options.length === 0;
 
   const select = (nextValue: string) => {
     onChange(nextValue.trim());

@@ -351,6 +351,7 @@ export interface FarmerAdvisoryItem {
   bodyEn: string;
   publishedAt: string;
   expiresAt: string;
+  downloadedAt?: string;
 }
 
 function toAdvisory(row: FarmerAdvisoryRow): FarmerAdvisoryItem {
@@ -362,6 +363,7 @@ function toAdvisory(row: FarmerAdvisoryRow): FarmerAdvisoryItem {
     bodyEn: row.bodyEn,
     publishedAt: row.publishedAt,
     expiresAt: row.expiresAt,
+    downloadedAt: row.downloadedAt,
   };
 }
 

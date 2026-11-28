@@ -32,6 +32,7 @@ describe('syncFarmerCare', () => {
     api = {
       submit: jest.fn(),
       fetchInquiries: jest.fn().mockResolvedValue([]),
+      fetchInquiry: jest.fn().mockRejectedValue(new ApiHttpError(404, "Missing fixture")),
       fetchAdvisories: jest.fn().mockResolvedValue({ items: [], homeBarangay: null }),
     };
     enqueueFarmerInquiry(database, {
@@ -50,6 +51,23 @@ describe('syncFarmerCare', () => {
   const run = (extra: Partial<Parameters<typeof syncFarmerCare>[0]> = {}) =>
     syncFarmerCare({ database, ownerIdentity: FARMER_A, token: 'token', api, imageExists: () => true, nowMs: () => clock, ...extra });
   const row = () => listFarmerInquiries(database, FARMER_A)[0];
+
+  it('catches up an open local request whose reply is outside the newest 50', async () => {
+    api.submit.mockResolvedValueOnce({ remoteId: 'older-inquiry', clientUuid: REQ, status: 'new', replies: [] });
+    await run();
+    api.fetchInquiries.mockResolvedValue(Array.from({ length: 50 }, (_, index) => ({
+      remoteId: 'newer-' + index, clientUuid: null, status: 'replied' as const, replies: [],
+    })));
+    api.fetchInquiry.mockRejectedValueOnce(new ApiHttpError(503, 'Unavailable'));
+    await run();
+    expect(row()).toMatchObject({ remoteStatus: 'new' });
+    api.fetchInquiry.mockResolvedValueOnce({
+      remoteId: 'older-inquiry', clientUuid: REQ, status: 'replied', replies: [],
+    });
+    await run();
+    expect(api.fetchInquiry).toHaveBeenLastCalledWith('older-inquiry', 'token');
+    expect(row()).toMatchObject({ remoteStatus: 'replied' });
+  });
 
   it('sends the saved photo and request once, with the plant and the unverified hint', async () => {
     api.submit.mockResolvedValue({ remoteId: 'remote-1', clientUuid: REQ, status: 'new', replies: [] });

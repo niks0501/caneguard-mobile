@@ -6,6 +6,7 @@ import { scanRecords } from '@/database/schema';
 import {
   fetchFarmerAdvisories,
   fetchFarmerInquiries,
+  fetchFarmerInquiry,
   readOpenInquiryUuid,
   submitFarmerInquiry,
   type FarmerAdvisoriesResult,
@@ -30,12 +31,14 @@ import { SyncError, toSyncError } from '@/features/sync/errors/syncErrors';
 export interface FarmerCareApi {
   submit(submission: FarmerInquirySubmission, token: string): Promise<RemoteFarmerInquiry>;
   fetchInquiries(token: string): Promise<RemoteFarmerInquiry[]>;
+  fetchInquiry(uuid: string, token: string): Promise<RemoteFarmerInquiry>;
   fetchAdvisories(token: string): Promise<FarmerAdvisoriesResult>;
 }
 
 const defaultApi: FarmerCareApi = {
   submit: submitFarmerInquiry,
   fetchInquiries: fetchFarmerInquiries,
+  fetchInquiry: fetchFarmerInquiry,
   fetchAdvisories: fetchFarmerAdvisories,
 };
 
@@ -45,6 +48,8 @@ export interface SyncFarmerCareOptions {
   token: string;
   /** Also download guidance for the home barangay. Skipped on a quick refresh. */
   refreshAdvisories?: boolean;
+  /** Recheck the local selection before publishing a completed download. */
+  canApplyAdvisories?: (homeBarangay: string | null | undefined) => boolean;
   api?: FarmerCareApi;
   imageExists?: (uri: string) => boolean;
   nowMs?: () => number;
@@ -60,7 +65,7 @@ export interface SyncFarmerCareResult {
   /** True only when the guidance endpoint succeeded and updated the local cache. */
   advisoriesRefreshed: boolean;
   /** Set when guidance was downloaded: the home barangay the office holds for this farmer. */
-  homeBarangay: string | null;
+  homeBarangay?: string | null;
 }
 
 /**
@@ -69,10 +74,13 @@ export interface SyncFarmerCareResult {
  */
 const inquiryHoldsUntilMs = new Map<string, number>();
 const advisoryHoldsUntilMs = new Map<string, number>();
+const missingInquiryOffsets = new Map<string, number>();
+const MAX_INQUIRY_DETAIL_READS = 5;
 
 export function resetFarmerCareHolds(): void {
   inquiryHoldsUntilMs.clear();
   advisoryHoldsUntilMs.clear();
+  missingInquiryOffsets.clear();
 }
 
 /**
@@ -93,7 +101,6 @@ export async function syncFarmerCare(options: SyncFarmerCareOptions): Promise<Sy
     newlyAnswered: 0,
     held: false,
     advisoriesRefreshed: false,
-    homeBarangay: null,
   };
 
   const inquiryHeld = (inquiryHoldsUntilMs.get(ownerIdentity) ?? 0) > now();
@@ -166,7 +173,7 @@ export async function syncFarmerCare(options: SyncFarmerCareOptions): Promise<Sy
     result.newlyAnswered = await refreshRemoteState(database, ownerIdentity, token, api, now);
   }
   if (options.refreshAdvisories && !globalStopped && !advisoryHeld) {
-    const refreshed = await refreshAdvisories(database, ownerIdentity, token, api, now);
+    const refreshed = await refreshAdvisories(database, ownerIdentity, token, api, now, options.canApplyAdvisories);
     result.advisoriesRefreshed = refreshed.refreshed;
     result.homeBarangay = refreshed.homeBarangay;
   }
@@ -235,18 +242,44 @@ async function refreshRemoteState(
   api: FarmerCareApi,
   now: () => number,
 ): Promise<number> {
-  const open = listFarmerInquiries(database, ownerIdentity).filter(
-    (item) => item.remoteId !== null && item.remoteStatus !== 'replied',
+  const openIds = new Set(
+    listFarmerInquiries(database, ownerIdentity).flatMap(
+      (item) => item.remoteId && item.remoteStatus !== 'replied' ? [item.remoteId] : [],
+    ),
   );
-  if (open.length === 0) return 0;
+  if (openIds.size === 0) {
+    missingInquiryOffsets.delete(ownerIdentity);
+    return 0;
+  }
   try {
-    const remote = await api.fetchInquiries(token);
-    const at = new Date(now()).toISOString();
+    const remote = new Map((await api.fetchInquiries(token)).map((row) => [row.remoteId, row]));
+    const missing = [...openIds].filter((uuid) => !remote.has(uuid));
+    if (missing.length > 0) {
+      const offset = (missingInquiryOffsets.get(ownerIdentity) ?? 0) % missing.length;
+      const count = Math.min(MAX_INQUIRY_DETAIL_READS, missing.length);
+      missingInquiryOffsets.set(ownerIdentity, offset + count);
+      for (let index = 0; index < count; index += 1) {
+        const uuid = missing[(offset + index) % missing.length];
+        try {
+          remote.set(uuid, await api.fetchInquiry(uuid, token));
+        } catch (error: unknown) {
+          // Preserve the local state if the detail is temporarily unavailable.
+          if (error instanceof ApiHttpError && error.status === 404) continue;
+          if (isLater(toSyncError(error, { endpoint: 'report' }))) break;
+        }
+      }
+    } else {
+      missingInquiryOffsets.delete(ownerIdentity);
+    }
     let answered = 0;
-    for (const item of open) {
-      const match = remote.find((candidate) => candidate.remoteId === item.remoteId);
-      if (!match) continue;
-      if (match.status === 'replied' && item.remoteStatus !== 'replied') answered += 1;
+    const at = new Date(now()).toISOString();
+    const current = listFarmerInquiries(database, ownerIdentity);
+    const answeredIds = new Set(current.filter((item) => item.remoteStatus === 'replied').map((item) => item.remoteId));
+    const reviewingIds = new Set(current.filter((item) => item.remoteStatus === 'reviewing').map((item) => item.remoteId));
+    for (const uuid of openIds) {
+      const match = remote.get(uuid);
+      if (match?.remoteId !== uuid || answeredIds.has(uuid) || (match.status === 'new' && reviewingIds.has(uuid))) continue;
+      if (match.status === 'replied') answered += 1;
       applyFarmerInquiryRemoteState(
         database,
         ownerIdentity,
@@ -268,9 +301,11 @@ async function refreshAdvisories(
   token: string,
   api: FarmerCareApi,
   now: () => number,
-): Promise<{ refreshed: boolean; homeBarangay: string | null }> {
+  canApply?: SyncFarmerCareOptions['canApplyAdvisories'],
+): Promise<{ refreshed: boolean; homeBarangay?: string | null }> {
   try {
     const { items, homeBarangay } = await api.fetchAdvisories(token);
+    if (canApply && !canApply(homeBarangay)) return { refreshed: false };
     replaceFarmerAdvisories(database, ownerIdentity, items, new Date(now()).toISOString());
     return { refreshed: true, homeBarangay };
   } catch (error: unknown) {
@@ -279,6 +314,6 @@ async function refreshAdvisories(
       advisoryHoldsUntilMs.set(ownerIdentity, now() + jitter(syncError.retryAfterMs));
     }
     // Keep what is already downloaded; guidance reads offline.
-    return { refreshed: false, homeBarangay: null };
+    return { refreshed: false };
   }
 }
